@@ -1,0 +1,265 @@
+:root {
+  --bg: #e9ecf1;
+  --surface: #ffffff;
+  --surface-2: #f3f5f8;
+  --text: #16191f;
+  --muted: #6b7380;
+  --border: #dde1e7;
+  --accent: #1f6feb;
+  --accent-soft: #e5eefc;
+  --done: #1a7f4b;
+  --done-soft: #e3f4ea;
+
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1014;
+    --surface: #171b21;
+    --surface-2: #20252d;
+    --text: #eef1f5;
+    --muted: #97a0ad;
+    --border: #2c323b;
+    --accent: #6ea8ff;
+    --accent-soft: #1c2b44;
+    --done: #5fd39a;
+    --done-soft: #183427;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+/* Phone-sized frame; fills the screen on an actual phone. */
+.phone {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 400px;
+  height: 100dvh;
+  max-height: 860px;
+  margin: 0 auto;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+@media (min-width: 440px) {
+  .phone {
+    margin-top: 24px;
+    height: calc(100dvh - 48px);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+  }
+}
+
+/* Sport tabs */
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  flex: 1;
+  padding: 10px 0 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.tab[aria-selected='true'] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tab:disabled {
+  opacity: 0.55;
+}
+
+.soon {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Workout being built */
+.workout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.lines {
+  flex: 1;
+  margin: 0;
+  padding: 0 0 0 28px;
+  overflow-y: auto;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.line {
+  padding: 6px 0;
+}
+
+.line::marker {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.line.current {
+  font-weight: 600;
+}
+
+.placeholder {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--accent);
+  animation: blink 1s steps(1) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.stage {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.stage-id {
+  margin-right: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+}
+
+/* Prediction strip */
+.strip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+  background: var(--surface-2);
+  border-top: 1px solid var(--border);
+}
+
+.chip-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.row-label {
+  padding: 0 16px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.chips {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex: none;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.chip:active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.chip-done {
+  border-color: var(--done);
+  background: var(--done-soft);
+  color: var(--done);
+  font-weight: 600;
+}
+
+/* Number pad */
+.pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 8px 16px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.key {
+  height: 48px;
+  border: none;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 20px;
+}
+
+.key:active:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.key:disabled {
+  opacity: 0.35;
+}
+
+.key-action {
+  font-size: 16px;
+  font-weight: 600;
+}
