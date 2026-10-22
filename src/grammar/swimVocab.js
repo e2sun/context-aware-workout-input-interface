@@ -20,4 +20,7 @@ export const INTERVALS_BY_DISTANCE = {
   400: [330, 360, 390],
 }
 
+// Distance chips that start a single-swim block item, e.g. `100 Free`.
+export const SINGLE_DISTANCES = [100, 200, 300, 400, 500]
+
 export const RESTS = [10, 15, 20, 30]

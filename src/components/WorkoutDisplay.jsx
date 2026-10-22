@@ -1,4 +1,4 @@
-export default function WorkoutDisplay({ lines, currentText, stage }) {
+export default function WorkoutDisplay({ lines, currentText, stage, onReset }) {
   return (
     <section className="workout" aria-label="Workout">
       <ol className="lines">
@@ -16,9 +16,14 @@ export default function WorkoutDisplay({ lines, currentText, stage }) {
           <span className="caret" aria-hidden="true" />
         </li>
       </ol>
-      <p className="stage">
-        <span className="stage-id">{stage.id}</span> Next: {stage.prompt}
-      </p>
+      <div className="stage-bar">
+        <p className="stage">
+          <span className="stage-id">{stage.id}</span> Next: {stage.prompt}
+        </p>
+        <button className="reset" onClick={onReset}>
+          Reset
+        </button>
+      </div>
     </section>
   )
 }

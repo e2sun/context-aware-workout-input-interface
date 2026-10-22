@@ -30,3 +30,6 @@ export const WEIGHTS_BY_EXERCISE = {
 }
 
 export const RESTS = [30, 60, 90, 120, 180]
+
+// Reps chips for a block item after `+ Add Exercise`.
+export const BLOCK_REPS = [5, 8, 10, 12, 15, 20]
