@@ -1,6 +1,6 @@
-# Prediction Rules Added in Weeks 6–7
+# Prediction Rules
 
-This is the full list of ranking rules added to the workout input interface. All rules are rule-based and use only the line or block currently being entered.
+This is the full list of ranking rules in the workout input interface, from Weeks 6–7 plus the swim equipment slot. All rules are rule-based and use only the line or block currently being entered.
 
 The rules reorder chips and do not remove them. Chips not listed in a preferred order keep their normal order after the preferred chips. The rules live in `src/grammar/swimVocab.js` and `src/grammar/gymVocab.js`, with shared helpers in `src/grammar/rank.js`.
 
@@ -40,11 +40,23 @@ There is no context at the start of a line, so the order is fixed:
 
 If the stroke is Drill or Choice, Easy and Moderate move to the front at every distance.
 
-### Interval (Based on Distance, Stroke, and Effort)
+### Equipment (Based on Stroke)
+
+| Stroke | Equipment order |
+|---|---|
+| Free | Paddles, Fins, Snorkel, Pull Buoy, Kickboard |
+| Back | Fins, Paddles, Snorkel, Pull Buoy, Kickboard |
+| Breast | Snorkel, Paddles, Pull Buoy, Kickboard, Fins |
+| Kick | Kickboard, Fins, Paddles, Snorkel, Pull Buoy |
+| Pull | Pull Buoy, Paddles, Snorkel, Fins, Kickboard |
+| Drill | Fins, Snorkel, Paddles, Pull Buoy, Kickboard |
+| Fly, IM, Choice | Fins, Paddles, Snorkel, Pull Buoy, Kickboard |
+
+### Interval (Based on Distance, Stroke, Effort, and Equipment)
 
 The system estimates the most likely interval:
 
-`estimate = distance × 0.9 sec/yd × stroke factor × effort factor`
+`estimate = distance × 0.9 sec/yd × stroke factor × effort factor × equipment factor`
 
 | Stroke | Factor |
 |---|---|
@@ -68,6 +80,12 @@ The system estimates the most likely interval:
 | Sprint | 1.25 |
 
 The effort factor changes the send-off time, not the swim speed. A harder effort leaves more recovery, so Sprint has the largest factor.
+
+| Equipment | Factor |
+|---|---|
+| Fins | 0.9 |
+| Paddles | 0.95 |
+| None, Snorkel, Pull Buoy, or Kickboard | 1 |
 
 The estimate is rounded to a value that is easy to read on a pace clock:
 
@@ -107,6 +125,8 @@ Examples:
 | `4 x 100 Free` | 90 sec | 1:30, 1:40, 1:45, 2:00 |
 | `4 x 100 Kick` | 121.5 sec | 2:00, 1:45, 1:40, 1:30 |
 | `4 x 100 Drill` | 126 sec | 2:05 (added), 2:00, 1:45, 1:40, 1:30 |
+| `8 x 50 Kick w/ Fins` | 54.68 sec | :55, 1:00, :50, :45, :40 |
+| `4 x 100 Free w/ Paddles` | 85.5 sec | 1:25 (added), 1:30, 1:40, 1:45, 2:00 |
 
 ### Rest (Based on Distance and Effort)
 
@@ -121,7 +141,7 @@ If the effort is Sprint, the order is always `30, 20, 15, 10`.
 
 ### Swimming Blocks
 
-- Block items use the same stroke, effort, and interval rules as normal lines.
+- Block items use the same stroke, effort, equipment, and interval rules as normal lines.
 - Block rest treats one round as a single swim, using the total yards in that round. For example, `100 Free + 8 x 25 Kick + 50 Free` counts as 350 yards.
 - If any item in the block is Sprint, the block uses the Sprint rest order.
 - Strokes already used in a block are not moved down, because blocks often repeat a stroke.

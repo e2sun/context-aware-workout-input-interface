@@ -1,7 +1,7 @@
-// Swim set grammar: [Reps x] Distance Stroke [Effort] [Interval | Rest]
+// Swim set grammar: [Reps x] Distance Stroke [Effort] [Equipment] [Interval | Rest]
 // or a block: Rounds × (Item + Item [+ ...]) [Rest], where an item is a set
-// ("8 x 25 Free") or a single swim ("100 Free"), each with optional [Effort] [Interval]
-// Stages and transitions follow docs/grammar.md section 6 (S0–S2, SW1–SW3, BL1–BL5).
+// ("8 x 25 Free") or a single swim ("100 Free"), each with optional [Effort] [Equipment] [Interval]
+// Stages and transitions follow docs/grammar.md section 6 (S0–S2, SW1–SW4, BL1–BL5).
 //
 // Every sport grammar exports the same shape (see grammar/index.js):
 //   emptyEntry, getStage, getSuggestions, acceptsDigits, typeDigit, acceptsTimes,
@@ -13,6 +13,7 @@ import {
   distancesFor,
   strokesFor,
   effortsFor,
+  equipmentFor,
   intervalsFor,
   restsFor,
   blockRestsFor,
@@ -29,6 +30,7 @@ export function emptyEntry() {
     distance: null,
     stroke: null,
     effort: null,
+    equipment: null,
     interval: null,
     rest: null,
     times: false,
@@ -45,6 +47,7 @@ function formatItem(i) {
   if (i.times && i.distance === null) text += ' x'
   if (i.stroke !== null) text += ` ${i.stroke}`
   if (i.effort !== null) text += ` ${i.effort}`
+  if (i.equipment !== null) text += ` w/ ${i.equipment}`
   if (i.interval !== null) text += ` @ ${formatInterval(i.interval)}`
   return text
 }
@@ -65,6 +68,18 @@ const effortGroup = (i) => ({
   label: 'Effort',
   chips: effortsFor(i).map((s) => ({ label: s, patch: { effort: s } })),
 })
+
+const equipmentGroup = (i) => ({
+  label: 'Equipment',
+  chips: equipmentFor(i.stroke).map((s) => ({ label: s, patch: { equipment: s } })),
+})
+
+// Optional slots are filled in display order, so each is offered only until a
+// later one is set. The interval and rest are handled by the callers.
+function modifierGroups(i) {
+  if (i.equipment !== null) return []
+  return i.effort === null ? [effortGroup(i), equipmentGroup(i)] : [equipmentGroup(i)]
+}
 
 // Chips once the first number is entered. Before ×: sets of it, plus single
 // swims when it can be a distance, which is then the likelier meaning.
@@ -98,6 +113,7 @@ function timesPatch(i) {
 // Removes the last filled slot of a line or block item.
 function deleteSlot(i) {
   if (i.interval !== null) return { ...i, interval: null }
+  if (i.equipment !== null) return { ...i, equipment: null }
   if (i.effort !== null) return { ...i, effort: null }
   // Undoing a single swim's stroke puts its distance back as the typed number.
   if (i.stroke !== null && i.reps === null) return { ...i, stroke: null, distance: null, reps: i.distance }
@@ -108,9 +124,9 @@ function deleteSlot(i) {
   return i
 }
 
-// Block item: "8 x 25 Free Sprint @ :30" or "100 Free"
+// Block item: "8 x 25 Free Sprint w/ Fins @ :30" or "100 Free"
 const blockItem = {
-  emptyItem: () => ({ reps: null, distance: null, stroke: null, effort: null, interval: null, times: false }),
+  emptyItem: () => ({ reps: null, distance: null, stroke: null, effort: null, equipment: null, interval: null, times: false }),
   itemStage(i) {
     if (!hasNumber(i)) return { id: 'BL1', prompt: 'Reps or distance' }
     if (i.distance === null) return { id: 'BL2', prompt: i.times ? 'Distance' : 'Distance or stroke' }
@@ -123,11 +139,10 @@ const blockItem = {
     }
     if (i.distance === null) return numberGroups(i, typed)
     if (i.stroke === null) return [strokeGroup(i.distance)]
-    // Effort comes before the interval, so it is only offered until an interval is set.
     if (i.interval !== null) return []
     const intervals = timeChoices(typed, intervalsFor(i))
     return [
-      ...(i.effort === null ? [effortGroup(i)] : []),
+      ...modifierGroups(i),
       { label: 'Interval', chips: intervals.map((s) => ({ label: `@ ${formatInterval(s)}`, patch: { interval: s } })) },
     ]
   },
@@ -148,8 +163,9 @@ export function getStage(e) {
   if (!hasNumber(e)) return { id: 'S0', prompt: 'Reps or distance' }
   if (e.distance === null) return e.times ? { id: 'S2', prompt: 'Distance' } : { id: 'S1', prompt: 'Distance or stroke' }
   if (e.stroke === null) return { id: 'SW1', prompt: 'Stroke' }
-  if (e.effort === null) return { id: 'SW2', prompt: 'Effort, interval or rest' }
-  return { id: 'SW3', prompt: 'Interval or rest' }
+  if (e.equipment !== null) return { id: 'SW4', prompt: 'Interval or rest' }
+  if (e.effort !== null) return { id: 'SW3', prompt: 'Equipment, interval or rest' }
+  return { id: 'SW2', prompt: 'Effort, equipment, interval or rest' }
 }
 
 // A chip is { label, patch, commit }. Tapping it merges `patch` into the entry;
@@ -187,9 +203,9 @@ function lineSuggestions(e) {
     case 'SW1':
       return [strokeGroup(e.distance)]
     case 'SW2':
-      return [effortGroup(e), ...intervalAndRestGroups(e), { label: null, chips: [done] }]
     case 'SW3':
-      return [...intervalAndRestGroups(e), { label: null, chips: [done] }]
+    case 'SW4':
+      return [...modifierGroups(e), ...intervalAndRestGroups(e), { label: null, chips: [done] }]
     default:
       return []
   }
@@ -250,7 +266,7 @@ export function isEmpty(e) {
   return !hasNumber(e) && e.block === null
 }
 
-// "8 x 50 Free Sprint @ :45" / "4 x 50 Kick, 15 sec rest" / "100 Free @ 1:30"
+// "8 x 50 Free Sprint w/ Fins @ :45" / "4 x 50 Kick, 15 sec rest" / "100 Free @ 1:30"
 // A number still being typed is shown at the end.
 export function format(e) {
   let text = e.block !== null ? block.formatBlock(e.block, blockItem) : formatItem(e)

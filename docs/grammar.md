@@ -17,7 +17,7 @@ in sections 2–6 say which chips exist; section 8 says what order they appear i
 
 ### Swim set
 
-`[Reps x] Distance Stroke [Effort] [Interval | Rest]`
+`[Reps x] Distance Stroke [Effort] [Equipment] [Interval | Rest]`
 
 Without reps the line is a single swim, e.g. `100 Free`: tap a distance chip
 (100–500 yd), or type a multiple of 25 and tap `n Stroke`.
@@ -28,6 +28,7 @@ Without reps the line is a single swim, e.g. `100 Free`: tap a distance chip
 | Distance | Yes | 25, 50, 75, 100, 150, 200, 400 | Number pad (multiples of 25) | `8 x 50` |
 | Stroke / Type | Yes | Free, Back, Breast, Fly, IM, Kick, Pull, Drill, Choice | Text | `8 x 50 Free` |
 | Effort | Optional | Easy, Moderate, Fast, Sprint, Build, Descend | Text | `8 x 50 Free Sprint` |
+| Equipment | Optional | Fins, Paddles, Snorkel, Pull Buoy, Kickboard | None | `8 x 50 Free w/ Fins` |
 | Interval **or** Rest | Optional (one, not both) | Interval: by distance (section 3). Rest: 10, 15, 20, 30 sec | Time pad | `@ :45` / `, 15 sec rest` |
 
 ### Gym set
@@ -51,7 +52,7 @@ Without sets the line is a single set, e.g. `20 Push-Ups`: type `n` and tap
 
 | Slot | Required? | Suggestion chips | Display |
 |---|---|---|---|
-| Swim item | 2 or more | Number → `n x 25/50/100/200` → Stroke, **or** a single swim: distance chip (100–500 yd) → Stroke, or typed `n` (multiple of 25) → `n Stroke`; then [Effort] → [Interval] | `8 x 25 Free @ :30`, `100 Free` |
+| Swim item | 2 or more | Number → `n x 25/50/100/200` → Stroke, **or** a single swim: distance chip (100–500 yd) → Stroke, or typed `n` (multiple of 25) → `n Stroke`; then [Effort] → [Equipment] → [Interval] | `8 x 25 Free w/ Fins @ :30`, `100 Free` |
 | Gym item | 2 or more | Reps (5, 8, 10, 12, 15, 20) → Exercise → [Weight] | `10 Squats`, `10 Squats @ 95 lb` |
 | Separator | Automatic | Swim: `+ Add` · Gym: `+ Add Exercise` · both: `Finish Block` | ` + `, `)` |
 | Rounds | Yes, chosen after Finish | `Repeat ×2`, `Repeat ×3`, `Repeat ×4`, or any count 1–99 on the number pad | `3 × (` |
@@ -59,9 +60,10 @@ Without sets the line is a single set, e.g. `20 Push-Ups`: type `n` and tap
 
 Rules:
 - A block is started with the **Start Block** chip, shown at S0 in both tabs.
-- Items may carry an interval (swim) or weight (gym); rest is block-level only.
-- Item modifiers are filled in display order: once a swim item has an
-  interval, Effort is no longer offered for it.
+- Items may carry equipment and an interval (swim) or weight (gym); rest is
+  block-level only.
+- Item modifiers are filled in display order: once a swim item has equipment,
+  Effort is no longer offered for it, and once it has an interval, neither is.
 - Blocks cannot be nested.
 
 ## 3. Swim interval chips by distance
@@ -102,6 +104,7 @@ so entries can be compared for errors.
 |---|---|---|
 | Multiply sign | Lowercase `x`, spaces on both sides; blocks use `×` for rounds | `8 x 50`, `3 × (` |
 | Effort | Follows stroke, one space | `50 Free Sprint` |
+| Equipment | Follows effort; `w/ ` + name | `50 Free Sprint w/ Fins` |
 | Interval | `@ ` + `:ss` under 1 min, `m:ss` otherwise | `@ :45`, `@ 1:40` |
 | Weight | `@ ` + number + ` lb` | `@ 135 lb` |
 | Rest | `, ` + time + ` rest`; `N sec` under 2 min, `N min` otherwise | `, 90 sec rest`, `, 2 min rest` |
@@ -136,14 +139,15 @@ gym rest, block rest), the line is committed automatically — no extra tap.
 | S1 | Number entered | **Swim:** `n x 25/50/100/200`, `n Stroke` (single swim, when `n` is a multiple of 25) · **Gym:** `n x 5/8/10/12`, `n Exercise` (single set) · **×** key | `n x d` → SW1 / GY1 · single → SW2 / GY2 · × → S2 |
 | S2 | `n x` typed | Swim: distance chips, or type a distance → Stroke · Gym: reps chips, or type reps → Exercise | → SW1 / SW2 · GY1 / GY2 |
 | SW1 | Reps x distance done | Stroke / Type | → SW2 |
-| SW2 | Stroke done | Effort, Interval (by distance), Rest, **Done** | Effort → SW3 · Interval/Rest → commit · Done → commit |
-| SW3 | Effort done | Interval (by distance), Rest, **Done** | Interval/Rest → commit · Done → commit |
+| SW2 | Stroke done | Effort, Equipment, Interval (by distance), Rest, **Done** | Effort → SW3 · Equipment → SW4 · Interval/Rest → commit · Done → commit |
+| SW3 | Effort done | Equipment, Interval (by distance), Rest, **Done** | Equipment → SW4 · Interval/Rest → commit · Done → commit |
+| SW4 | Equipment done | Interval (by distance), Rest, **Done** | Interval/Rest → commit · Done → commit |
 | GY1 | Sets x reps done | Exercise | → GY2 |
 | GY2 | Exercise done | Weight (by exercise), Rest, **Done** | Weight → GY3 · Rest → commit · Done → commit |
 | GY3 | Weight done | Rest, **Done** | Rest → commit · Done → commit |
 | BL1 | Block item start | Swim: reps chips, distance chips (`100 yd` …) · Gym: reps chips · or number pad | → BL2 |
 | BL2 | Item number done | Swim: `n x d`, `n Stroke`, then Stroke · Gym: `r Exercise` | → BL3 |
-| BL3 | Item core done | Swim: Effort, Interval · Gym: Weight · plus `+ Add`, `Finish Block`* | Modifier → BL3 (that modifier removed) · `+ Add` → BL1 · Finish → BL4 |
+| BL3 | Item core done | Swim: Effort, Equipment, Interval · Gym: Weight · plus `+ Add`, `Finish Block`* | Modifier → BL3 (that modifier removed) · `+ Add` → BL1 · Finish → BL4 |
 | BL4 | Block closed | `Repeat ×2/×3/×4`, or type a count | → BL5 |
 | BL5 | Rounds chosen | Rest, **Done** (number pad still edits the count) | Rest → commit · Done → commit |
 
@@ -193,11 +197,12 @@ along. The tables and `*For()` functions live in `src/grammar/swimVocab.js` and
 | Distance | Reps | ≤ 2: 200 first · ≤ 4: 100 · ≤ 8: 50 · more: 25 |
 | Stroke | Distance | Free first. Kick next up to 50, IM next up to 150, Pull next beyond. IM last up to 50, Fly last from 75 |
 | Effort | Distance, stroke | ≤ 50: Fast · ≤ 150: Moderate · longer: Moderate, Build. Drill and Choice: Easy, Moderate first |
-| Interval | Distance, stroke, effort | Closest to the estimate first (below) |
+| Equipment | Stroke | Free: Paddles, Fins, Snorkel · Back: Fins, Paddles · Breast: Snorkel, Paddles, Pull Buoy, Kickboard · Kick: Kickboard, Fins · Pull: Pull Buoy, Paddles, Snorkel · Drill: Fins, Snorkel · others: Fins, Paddles, Snorkel, Pull Buoy, Kickboard |
+| Interval | Distance, stroke, effort, equipment | Closest to the estimate first (below) |
 | Rest | Distance, effort | ≤ 100: 15 sec · ≤ 200: 20 sec · longer: 30 sec. Sprint: 30 sec |
 | Block rest | Whole round | The Rest rule, using the yards in one round; any Sprint item uses the Sprint order |
 
-Estimated interval = distance × 0.9 sec/yd × stroke factor × effort factor,
+Estimated interval = distance × 0.9 sec/yd × stroke factor × effort factor × equipment factor,
 rounded to 5 sec (up to 100 yd), 15 sec (up to 200 yd) or 30 sec (longer).
 
 | Stroke | Free, Pull | Back, Choice | IM | Breast | Fly | Kick | Drill |
@@ -209,6 +214,10 @@ rounded to 5 sec (up to 100 yd), 15 sec (up to 200 yd) or 30 sec (longer).
 | Factor | 1 | 1.05 | 1.1 | 1.25 |
 
 Effort factors scale the send-off, not swim speed: a sprint set leaves more recovery.
+
+| Equipment | Paddles | Fins | Anything else |
+|---|---|---|---|
+| Factor | 0.95 | 0.9 | 1 |
 
 ### Gym
 
@@ -244,8 +253,6 @@ other way round.
 
 ## 9. Future steps
 
-- **Swim equipment slot** — optional slot after Effort: Fins, Paddles,
-  Snorkel, Pull Buoy, Kickboard; displayed as `w/ Fins`.
 - **Unit options** — meters for swim distances and kg for weights, with a
   workout-level toggle and conversion of existing lines.
 - **More sport tabs** — the tab design leaves room for sports beyond Swim and

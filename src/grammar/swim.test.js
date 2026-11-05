@@ -117,7 +117,20 @@ describe('swim typing', () => {
 
   it('offers no time chips for an impossible time', () => {
     const s = typeNumber(enter(['4', '4 x 100', 'IM']), 175)
-    expect(chipLabels(s)).toEqual(['Moderate', 'Fast', 'Descend', 'Build', 'Easy', 'Sprint', 'Done'])
+    expect(chipLabels(s)).toEqual([
+      'Moderate',
+      'Fast',
+      'Descend',
+      'Build',
+      'Easy',
+      'Sprint',
+      'Fins',
+      'Paddles',
+      'Snorkel',
+      'Pull Buoy',
+      'Kickboard',
+      'Done',
+    ])
   })
 
   it('delete walks back through × and a typed distance', () => {
@@ -190,10 +203,10 @@ describe('swim blocks', () => {
   it('builds a set item: 8 x 25 Free @ :30', () => {
     let s = tap(tap(tap(opened(), '8'), '8 x 25'), 'Free')
     expect(stage(s)).toBe('BL3')
-    expect(groupLabels(s)).toEqual(['Effort', 'Interval', null])
+    expect(groupLabels(s)).toEqual(['Effort', 'Equipment', 'Interval', null])
     s = tap(s, '@ :30')
     expect(text(s)).toBe('(8 x 25 Free @ :30')
-    // Effort comes before the interval, so it is no longer offered.
+    // Effort and equipment come before the interval, so they are no longer offered.
     expect(groupLabels(s)).toEqual([null])
   })
 

@@ -19,6 +19,8 @@ const STROKES = ['Free', 'Back', 'Breast', 'Fly', 'IM', 'Kick', 'Pull', 'Drill',
 
 const EFFORTS = ['Easy', 'Moderate', 'Fast', 'Sprint', 'Build', 'Descend']
 
+const EQUIPMENT = ['Fins', 'Paddles', 'Snorkel', 'Pull Buoy', 'Kickboard']
+
 const RESTS = [10, 15, 20, 30]
 
 const INTERVALS_BY_DISTANCE = {
@@ -61,6 +63,16 @@ const EFFORTS_BY_STROKE = {
   Choice: ['Easy', 'Moderate'],
 }
 
+// Strokes not listed here keep the EQUIPMENT order.
+const EQUIPMENT_BY_STROKE = {
+  Free: ['Paddles', 'Fins', 'Snorkel'],
+  Back: ['Fins', 'Paddles'],
+  Breast: ['Snorkel', 'Paddles', 'Pull Buoy', 'Kickboard'],
+  Kick: ['Kickboard', 'Fins'],
+  Pull: ['Pull Buoy', 'Paddles', 'Snorkel'],
+  Drill: ['Fins', 'Snorkel'],
+}
+
 const RESTS_BY_DISTANCE = [
   [50, [15, 10, 20, 30]],
   [100, [15, 20, 10, 30]],
@@ -68,7 +80,7 @@ const RESTS_BY_DISTANCE = [
   [Infinity, [30, 20, 15, 10]],
 ]
 
-// The most likely interval is estimated as distance x Free pace x stroke x effort.
+// The most likely interval is estimated as distance x Free pace x stroke x effort x equipment.
 const FREE_SECONDS_PER_YARD = 0.9
 
 // Send-off time relative to Free.
@@ -94,6 +106,12 @@ const EFFORT_PACE = {
   Descend: 1.1,
 }
 
+// Send-off time with equipment that makes a swimmer faster. Anything else is 1.
+const EQUIPMENT_PACE = {
+  Fins: 0.9,
+  Paddles: 0.95,
+}
+
 // Intervals are rounded to what a pace clock makes easy to read.
 const INTERVAL_STEPS = [
   [100, 5],
@@ -114,10 +132,19 @@ export function effortsFor({ distance, stroke }) {
   return rankFirst(EFFORTS_BY_STROKE[stroke] ?? [], byDistance)
 }
 
+export function equipmentFor(stroke) {
+  return rankFirst(EQUIPMENT_BY_STROKE[stroke] ?? [], EQUIPMENT)
+}
+
 // The presets for this distance, plus the estimated interval, closest to the
 // estimate first. A distance without presets gets the estimate and a step either side.
-export function intervalsFor({ distance, stroke, effort }) {
-  const target = distance * FREE_SECONDS_PER_YARD * (STROKE_PACE[stroke] ?? 1) * (EFFORT_PACE[effort] ?? 1)
+export function intervalsFor({ distance, stroke, effort, equipment }) {
+  const target =
+    distance *
+    FREE_SECONDS_PER_YARD *
+    (STROKE_PACE[stroke] ?? 1) *
+    (EFFORT_PACE[effort] ?? 1) *
+    (EQUIPMENT_PACE[equipment] ?? 1)
   const step = inBand(INTERVAL_STEPS, distance)
   const estimate = Math.round(target / step) * step
   const presets = INTERVALS_BY_DISTANCE[distance] ?? [estimate - step, estimate + step]

@@ -319,3 +319,84 @@ describe('custom input still wins over predictions', () => {
     expect(row(s, 'Rest')[0]).toBe('3 min rest')
   })
 })
+
+describe('swim equipment', () => {
+  const rows = (state) => swim.getSuggestions(state.current).map((g) => g.label)
+  const text = (state) => swim.format(state.current)
+  const del = (state) => workoutReducer(state, { type: 'delete' })
+  const stage = (state) => swim.getStage(state.current).id
+
+  it('is offered after the stroke and after an effort', () => {
+    expect(rows(swimLine('8', '8 x 50', 'Free'))).toEqual(['Effort', 'Equipment', 'Interval', 'Rest', null])
+    expect(rows(swimLine('8', '8 x 50', 'Free', 'Fast'))).toEqual(['Equipment', 'Interval', 'Rest', null])
+  })
+
+  it('removes effort and equipment once equipment is chosen', () => {
+    const s = swimLine('8', '8 x 50', 'Free', 'Fins')
+    expect(stage(s)).toBe('SW4')
+    expect(rows(s)).toEqual(['Interval', 'Rest', null])
+  })
+
+  it.each([
+    [['8', '8 x 50', 'Kick', 'Fins', '@ :55'], '8 x 50 Kick w/ Fins @ :55'],
+    [['4', '4 x 100', 'Pull', 'Fast', 'Pull Buoy', '20 sec rest'], '4 x 100 Pull Fast w/ Pull Buoy, 20 sec rest'],
+    [['6', '6 x 50', 'Free', 'Paddles', 'Done'], '6 x 50 Free w/ Paddles'],
+  ])('%j -> %s', (labels, expected) => {
+    expect(swimLine(...labels).lines).toEqual([expected])
+  })
+
+  it('works on a single swim', () => {
+    expect(enter('swim', ['200 yd', 'Free', 'Snorkel', 'Done']).lines).toEqual(['200 Free w/ Snorkel'])
+  })
+
+  it.each([
+    ['Kick', ['Kickboard', 'Fins']],
+    ['Pull', ['Pull Buoy', 'Paddles']],
+    ['Free', ['Paddles', 'Fins']],
+    ['Drill', ['Fins', 'Snorkel']],
+    ['Fly', ['Fins', 'Paddles']],
+  ])('%s ranks %j first', (stroke, first) => {
+    expect(row(swimLine('8', '8 x 50', stroke), 'Equipment').slice(0, 2)).toEqual(first)
+  })
+
+  it.each(STROKES)('keeps every chip for %s', (stroke) => {
+    expect(sorted(row(swimLine('8', '8 x 50', stroke), 'Equipment'))).toEqual(
+      sorted(['Fins', 'Paddles', 'Snorkel', 'Pull Buoy', 'Kickboard']),
+    )
+  })
+
+  it('fins and paddles shorten the interval, other equipment does not', () => {
+    expect(row(swimLine('8', '8 x 50', 'Kick', 'Fins'), 'Interval')[0]).toBe('@ :55')
+    expect(row(swimLine('4', '4 x 100', 'Free', 'Paddles'), 'Interval')[0]).toBe('@ 1:25')
+    expect(row(swimLine('8', '8 x 50', 'Kick', 'Kickboard'), 'Interval')[0]).toBe('@ 1:00')
+  })
+
+  it('delete removes equipment first, then effort', () => {
+    let s = swimLine('8', '8 x 50', 'Free', 'Sprint', 'Fins')
+    expect(text(s)).toBe('8 x 50 Free Sprint w/ Fins')
+    s = del(s)
+    expect([stage(s), text(s)]).toEqual(['SW3', '8 x 50 Free Sprint'])
+    s = del(s)
+    expect([stage(s), text(s)]).toEqual(['SW2', '8 x 50 Free'])
+  })
+
+  it('a typed interval follows the equipment', () => {
+    const s = typeNumber(swimLine('8', '8 x 50', 'Kick', 'Fins'), 52)
+    expect(tap(s, '@ :52').lines).toEqual(['8 x 50 Kick w/ Fins @ :52'])
+  })
+
+  it('works in blocks, using the same ranking and interval rules', () => {
+    const labels = ['8', '8 x 50', 'Kick']
+    expect(row(swimBlock(...labels), 'Equipment')).toEqual(row(swimLine(...labels), 'Equipment'))
+    let s = swimBlock(...labels, 'Fins')
+    expect(rows(s)).toEqual(['Interval', null])
+    expect(row(s, 'Interval')).toEqual(row(swimLine(...labels, 'Fins'), 'Interval'))
+    s = tap(s, '@ :55')
+    expect(text(s)).toBe('(8 x 50 Kick w/ Fins @ :55')
+    expect(rows(s)).toEqual([null])
+    expect(text(del(s))).toBe('(8 x 50 Kick w/ Fins')
+    expect(text(del(del(s)))).toBe('(8 x 50 Kick')
+    s = enter('swim', ['+ Add', '100 yd', 'Free', 'Finish Block', 'Repeat ×2', 'Done'], s)
+    expect(s.lines).toEqual(['2 × (8 x 50 Kick w/ Fins @ :55 + 100 Free)'])
+  })
+})

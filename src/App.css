@@ -112,7 +112,7 @@ button:disabled {
 /* Workout being built */
 .workout {
   flex: 1;
-  min-height: 0;
+  min-height: 120px;
   display: flex;
   flex-direction: column;
   padding: 16px;
@@ -198,7 +198,9 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-height: 0;
   padding: 12px 0;
+  overflow-y: auto;
   background: var(--surface-2);
   border-top: 1px solid var(--border);
 }
