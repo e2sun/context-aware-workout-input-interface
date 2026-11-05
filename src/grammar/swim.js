@@ -7,7 +7,16 @@
 //   emptyEntry, getStage, getSuggestions, acceptsDigits, typeDigit, acceptsTimes,
 //   typeTimes, deleteLast, isEmpty, format
 
-import { REPS, DISTANCE_CHIPS, SINGLE_DISTANCES, STROKES, EFFORTS, INTERVALS_BY_DISTANCE, RESTS } from './swimVocab.js'
+import {
+  REPS,
+  SINGLE_DISTANCES,
+  distancesFor,
+  strokesFor,
+  effortsFor,
+  intervalsFor,
+  restsFor,
+  blockRestsFor,
+} from './swimVocab.js'
 import { formatInterval, formatRest } from './format.js'
 import { appendDigit, dropDigit, timeChoices, finishGroups } from './number.js'
 import * as block from './block.js'
@@ -47,20 +56,29 @@ const distanceGroup = {
   chips: SINGLE_DISTANCES.map((d) => ({ label: `${d} yd`, patch: { distance: d } })),
 }
 
-const strokeGroup = { label: 'Stroke', chips: STROKES.map((s) => ({ label: s, patch: { stroke: s } })) }
+const strokeGroup = (distance) => ({
+  label: 'Stroke',
+  chips: strokesFor(distance).map((s) => ({ label: s, patch: { stroke: s } })),
+})
+
+const effortGroup = (i) => ({
+  label: 'Effort',
+  chips: effortsFor(i).map((s) => ({ label: s, patch: { effort: s } })),
+})
 
 // Chips once the first number is entered. Before ×: sets of it, plus single
-// swims when it can be a distance. After ×: the distance being typed.
+// swims when it can be a distance, which is then the likelier meaning.
+// After ×: the distance being typed.
 function numberGroups(i, typed) {
   const n = i.reps
   if (i.times && typed !== null) {
-    return [{ label: 'Stroke', chips: STROKES.map((s) => ({ label: s, patch: { distance: typed, stroke: s } })) }]
+    return [{ label: 'Stroke', chips: strokesFor(typed).map((s) => ({ label: s, patch: { distance: typed, stroke: s } })) }]
   }
-  const sets = { label: 'Set', chips: DISTANCE_CHIPS.map((d) => ({ label: `${n} x ${d}`, patch: { distance: d } })) }
+  const sets = { label: 'Set', chips: distancesFor(n).map((d) => ({ label: `${n} x ${d}`, patch: { distance: d } })) }
   if (i.times || n % 25 !== 0) return [sets]
   return [
+    { label: 'Single', chips: strokesFor(n).map((s) => ({ label: `${n} ${s}`, patch: { reps: null, distance: n, stroke: s } })) },
     sets,
-    { label: 'Single', chips: STROKES.map((s) => ({ label: `${n} ${s}`, patch: { reps: null, distance: n, stroke: s } })) },
   ]
 }
 
@@ -104,12 +122,12 @@ const blockItem = {
       return [{ label: 'Reps', chips: REPS.map((n) => ({ label: String(n), patch: { reps: n } })) }, distanceGroup]
     }
     if (i.distance === null) return numberGroups(i, typed)
-    if (i.stroke === null) return [strokeGroup]
+    if (i.stroke === null) return [strokeGroup(i.distance)]
     // Effort comes before the interval, so it is only offered until an interval is set.
     if (i.interval !== null) return []
-    const intervals = timeChoices(typed, INTERVALS_BY_DISTANCE[i.distance] ?? [])
+    const intervals = timeChoices(typed, intervalsFor(i))
     return [
-      ...(i.effort === null ? [{ label: 'Effort', chips: EFFORTS.map((s) => ({ label: s, patch: { effort: s } })) }] : []),
+      ...(i.effort === null ? [effortGroup(i)] : []),
       { label: 'Interval', chips: intervals.map((s) => ({ label: `@ ${formatInterval(s)}`, patch: { interval: s } })) },
     ]
   },
@@ -120,7 +138,7 @@ const blockItem = {
   isItemEmpty: (i) => !hasNumber(i),
   formatItem,
   addLabel: '+ Add',
-  rests: RESTS,
+  rests: blockRestsFor,
 }
 
 // The stage is derived from which slots are filled, so there is no separate
@@ -142,7 +160,7 @@ function intervalAndRestGroups(e) {
   return [
     {
       label: 'Interval',
-      chips: timeChoices(e.typed, INTERVALS_BY_DISTANCE[e.distance] ?? []).map((s) => ({
+      chips: timeChoices(e.typed, intervalsFor(e)).map((s) => ({
         label: `@ ${formatInterval(s)}`,
         patch: { interval: s },
         commit: true,
@@ -150,7 +168,7 @@ function intervalAndRestGroups(e) {
     },
     {
       label: 'Rest',
-      chips: timeChoices(e.typed, RESTS).map((s) => ({ label: `${formatRest(s)} rest`, patch: { rest: s }, commit: true })),
+      chips: timeChoices(e.typed, restsFor(e)).map((s) => ({ label: `${formatRest(s)} rest`, patch: { rest: s }, commit: true })),
     },
   ]
 }
@@ -167,13 +185,9 @@ function lineSuggestions(e) {
     case 'S2':
       return numberGroups(e, e.typed)
     case 'SW1':
-      return [strokeGroup]
+      return [strokeGroup(e.distance)]
     case 'SW2':
-      return [
-        { label: 'Effort', chips: EFFORTS.map((s) => ({ label: s, patch: { effort: s } })) },
-        ...intervalAndRestGroups(e),
-        { label: null, chips: [done] },
-      ]
+      return [effortGroup(e), ...intervalAndRestGroups(e), { label: null, chips: [done] }]
     case 'SW3':
       return [...intervalAndRestGroups(e), { label: null, chips: [done] }]
     default:

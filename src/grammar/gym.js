@@ -3,7 +3,16 @@
 // Stages and transitions follow docs/grammar.md section 6 (S0–S2, GY1–GY3, BL1–BL5).
 // Exports the same shape as swim.js (see grammar/index.js).
 
-import { SETS, REPS_CHIPS, EXERCISES, WEIGHTS_BY_EXERCISE, RESTS, BLOCK_REPS } from './gymVocab.js'
+import {
+  SETS,
+  BLOCK_REPS,
+  MAX_LIKELY_SETS,
+  repsFor,
+  exercisesFor,
+  weightsFor,
+  restsFor,
+  blockRestsFor,
+} from './gymVocab.js'
 import { formatRest } from './format.js'
 import { appendDigit, dropDigit, numberChoices, timeChoices, finishGroups } from './number.js'
 import * as block from './block.js'
@@ -28,10 +37,10 @@ function formatItem(i) {
   return text
 }
 
-function weightGroup(exercise, typed) {
+function weightGroup(i, typed) {
   return {
     label: 'Weight',
-    chips: numberChoices(typed, WEIGHTS_BY_EXERCISE[exercise] ?? []).map((w) => ({
+    chips: numberChoices(typed, weightsFor(i)).map((w) => ({
       label: `@ ${w} lb`,
       patch: { weight: w },
     })),
@@ -46,14 +55,17 @@ const blockItem = {
     if (i.exercise === null) return { id: 'BL2', prompt: 'Exercise' }
     return null
   },
-  itemSuggestions(i, typed) {
+  itemSuggestions(i, typed, earlier) {
     if (i.reps === null) {
       return [{ label: 'Reps', chips: BLOCK_REPS.map((r) => ({ label: String(r), patch: { reps: r } })) }]
     }
     if (i.exercise === null) {
-      return [{ label: 'Exercise', chips: EXERCISES.map((x) => ({ label: `${i.reps} ${x}`, patch: { exercise: x } })) }]
+      const used = earlier.map((item) => item.exercise)
+      return [
+        { label: 'Exercise', chips: exercisesFor(i.reps, used).map((x) => ({ label: `${i.reps} ${x}`, patch: { exercise: x } })) },
+      ]
     }
-    return i.weight === null ? [weightGroup(i.exercise, typed)] : []
+    return i.weight === null ? [weightGroup(i, typed)] : []
   },
   itemDigitTarget(i) {
     if (i.exercise === null) return 'number'
@@ -68,7 +80,7 @@ const blockItem = {
   isItemEmpty: (i) => i.reps === null,
   formatItem,
   addLabel: '+ Add Exercise',
-  rests: RESTS,
+  rests: blockRestsFor,
 }
 
 export function getStage(e) {
@@ -82,28 +94,28 @@ export function getStage(e) {
 
 const done = { label: 'Done', patch: {}, commit: true, kind: 'done' }
 
-function restGroup(typed) {
+function restGroup(e) {
   return {
     label: 'Rest',
-    chips: timeChoices(typed, RESTS).map((s) => ({ label: `${formatRest(s)} rest`, patch: { rest: s }, commit: true })),
+    chips: timeChoices(e.typed, restsFor(e)).map((s) => ({ label: `${formatRest(s)} rest`, patch: { rest: s }, commit: true })),
   }
 }
 
-const exerciseGroup = { label: 'Exercise', chips: EXERCISES.map((x) => ({ label: x, patch: { exercise: x } })) }
-
 // Chips once the first number is entered. Before ×: sets of it, plus a single
-// set of that many reps. After ×: the reps being typed.
+// set of that many reps, which goes first when the number is too high to be
+// sets. After ×: the reps being typed.
 function numberGroups(e) {
   const n = e.sets
   if (e.times && e.typed !== null) {
-    return [{ label: 'Exercise', chips: EXERCISES.map((x) => ({ label: x, patch: { reps: e.typed, exercise: x } })) }]
+    return [{ label: 'Exercise', chips: exercisesFor(e.typed).map((x) => ({ label: x, patch: { reps: e.typed, exercise: x } })) }]
   }
-  const sets = { label: 'Reps', chips: REPS_CHIPS.map((r) => ({ label: `${n} x ${r}`, patch: { reps: r } })) }
+  const sets = { label: 'Reps', chips: repsFor(n).map((r) => ({ label: `${n} x ${r}`, patch: { reps: r } })) }
   if (e.times) return [sets]
-  return [
-    sets,
-    { label: 'Single', chips: EXERCISES.map((x) => ({ label: `${n} ${x}`, patch: { sets: null, reps: n, exercise: x } })) },
-  ]
+  const single = {
+    label: 'Single',
+    chips: exercisesFor(n).map((x) => ({ label: `${n} ${x}`, patch: { sets: null, reps: n, exercise: x } })),
+  }
+  return n > MAX_LIKELY_SETS ? [single, sets] : [sets, single]
 }
 
 function lineSuggestions(e) {
@@ -117,11 +129,11 @@ function lineSuggestions(e) {
     case 'S2':
       return numberGroups(e)
     case 'GY1':
-      return [exerciseGroup]
+      return [{ label: 'Exercise', chips: exercisesFor(e.reps).map((x) => ({ label: x, patch: { exercise: x } })) }]
     case 'GY2':
-      return [weightGroup(e.exercise, e.typed), restGroup(e.typed), { label: null, chips: [done] }]
+      return [weightGroup(e, e.typed), restGroup(e), { label: null, chips: [done] }]
     case 'GY3':
-      return [restGroup(e.typed), { label: null, chips: [done] }]
+      return [restGroup(e), { label: null, chips: [done] }]
     default:
       return []
   }

@@ -44,7 +44,7 @@ describe('stages', () => {
   it('suggests intervals based on the chosen distance', () => {
     const s = enter(['4', '4 x 100', 'Back'])
     const intervals = swim.getSuggestions(s.current).find((g) => g.label === 'Interval')
-    expect(intervals.chips.map((c) => c.label)).toEqual(['@ 1:30', '@ 1:40', '@ 1:45', '@ 2:00'])
+    expect(intervals.chips.map((c) => c.label)).toEqual(['@ 1:40', '@ 1:45', '@ 1:30', '@ 2:00'])
   })
 })
 
@@ -91,7 +91,7 @@ describe('swim typing', () => {
   it('× types a custom distance: 8 x 75 Free', () => {
     let s = times(typeNumber(initialState('swim'), 8))
     expect([stage(s), text(s)]).toEqual(['S2', '8 x'])
-    expect(chipLabels(s)).toEqual(['8 x 25', '8 x 50', '8 x 100', '8 x 200'])
+    expect(chipLabels(s)).toEqual(['8 x 50', '8 x 100', '8 x 25', '8 x 200'])
     s = typeNumber(s, 75)
     expect(text(s)).toBe('8 x 75')
     s = tap(s, 'Free')
@@ -117,7 +117,7 @@ describe('swim typing', () => {
 
   it('offers no time chips for an impossible time', () => {
     const s = typeNumber(enter(['4', '4 x 100', 'IM']), 175)
-    expect(chipLabels(s)).toEqual(['Easy', 'Moderate', 'Fast', 'Sprint', 'Build', 'Descend', 'Done'])
+    expect(chipLabels(s)).toEqual(['Moderate', 'Fast', 'Descend', 'Build', 'Easy', 'Sprint', 'Done'])
   })
 
   it('delete walks back through × and a typed distance', () => {
@@ -180,10 +180,10 @@ describe('swim blocks', () => {
   it('a typed number offers sets, plus single swims when it is a distance', () => {
     const eight = tap(opened(), '8')
     expect(groupLabels(eight)).toEqual(['Set'])
-    expect(chipLabels(eight)).toEqual(['8 x 25', '8 x 50', '8 x 100', '8 x 200'])
+    expect(chipLabels(eight)).toEqual(['8 x 50', '8 x 100', '8 x 25', '8 x 200'])
 
     const hundred = typeNumber(opened(), 100)
-    expect(groupLabels(hundred)).toEqual(['Set', 'Single'])
+    expect(groupLabels(hundred)).toEqual(['Single', 'Set'])
     expect(chipLabels(hundred)).toEqual(expect.arrayContaining(['100 x 25', '100 Free', '100 Kick']))
   })
 
@@ -201,7 +201,7 @@ describe('swim blocks', () => {
     let s = threeItems()
     expect(text(s)).toBe('(100 Free + 8 x 25 Kick + 50 Free Sprint')
     s = tap(s, 'Finish Block')
-    expect(chipLabels(s)).toEqual(['Repeat ×2', 'Repeat ×3', 'Repeat ×4'])
+    expect(chipLabels(s)).toEqual(['Repeat ×3', 'Repeat ×2', 'Repeat ×4'])
     s = tap(tap(s, 'Repeat ×3'), 'Done')
     expect(s.lines).toEqual(['3 × (100 Free + 8 x 25 Kick + 50 Free Sprint)'])
     expect(stage(s)).toBe('S0')
@@ -243,7 +243,7 @@ describe('swim blocks', () => {
   it('a line can be a single swim, typed or tapped', () => {
     const typed = typeNumber(initialState('swim'), 100)
     expect(stage(typed)).toBe('S1')
-    expect(groupLabels(typed)).toEqual(['Set', 'Single'])
+    expect(groupLabels(typed)).toEqual(['Single', 'Set'])
     expect(tap(tap(typed, '100 Free'), 'Done').lines).toEqual(['100 Free'])
 
     let s = tap(tap(initialState('swim'), '200 yd'), 'IM')

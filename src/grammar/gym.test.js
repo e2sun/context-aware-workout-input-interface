@@ -37,7 +37,7 @@ describe('gym stages', () => {
   it('suggests weights based on the chosen exercise', () => {
     const s = enter(['4', '4 x 5', 'Deadlift'])
     const weights = gym.getSuggestions(s.current).find((g) => g.label === 'Weight')
-    expect(weights.chips.map((c) => c.label)).toEqual(['@ 135 lb', '@ 185 lb', '@ 225 lb', '@ 275 lb'])
+    expect(weights.chips.map((c) => c.label)).toEqual(['@ 225 lb', '@ 275 lb', '@ 185 lb', '@ 135 lb'])
   })
 
   it('switching tabs starts a new workout', () => {
@@ -120,7 +120,7 @@ describe('gym blocks', () => {
     expect(stage(s)).toBe('BL1')
     expect(text(s)).toBe('(')
     expect(gym.acceptsDigits(s.current)).toBe(true)
-    expect(chipLabels(s)).toEqual(['5', '8', '10', '12', '15', '20'])
+    expect(chipLabels(s)).toEqual(['10', '12', '15', '8', '20', '5'])
   })
 
   it('starts a block with the first exercise', () => {
@@ -128,7 +128,7 @@ describe('gym blocks', () => {
     expect(stage(s)).toBe('BL3')
     expect(text(s)).toBe('(10 Squats')
     // Weight chips for the item; a block needs two items before it can be finished.
-    expect(chipLabels(s)).toEqual(['@ 95 lb', '@ 135 lb', '@ 185 lb', '@ 225 lb', '+ Add Exercise'])
+    expect(chipLabels(s)).toEqual(['@ 135 lb', '@ 185 lb', '@ 95 lb', '@ 225 lb', '+ Add Exercise'])
     expect(s.lines).toEqual([])
   })
 
@@ -156,7 +156,7 @@ describe('gym blocks', () => {
   it('finishing a block offers the repeat options', () => {
     const s = tap(threeItems(), 'Finish Block')
     expect(stage(s)).toBe('BL4')
-    expect(chipLabels(s)).toEqual(['Repeat ×2', 'Repeat ×3', 'Repeat ×4'])
+    expect(chipLabels(s)).toEqual(['Repeat ×3', 'Repeat ×2', 'Repeat ×4'])
     expect(text(s)).toBe('(10 Squats + 10 Push-Ups + 20 Lunges)')
   })
 
@@ -186,7 +186,7 @@ describe('gym blocks', () => {
     let s = repeated()
     expect(stage(s)).toBe('BL5')
     expect(text(s)).toBe('3 × (10 Squats + 10 Push-Ups + 20 Lunges)')
-    expect(chipLabels(s)).toEqual(['30 sec rest', '60 sec rest', '90 sec rest', '2 min rest', '3 min rest', 'Done'])
+    expect(chipLabels(s)).toEqual(['2 min rest', '3 min rest', '90 sec rest', '60 sec rest', '30 sec rest', 'Done'])
     s = tap(s, 'Done')
     expect(s.lines).toEqual(['3 × (10 Squats + 10 Push-Ups + 20 Lunges)'])
     expect(s.current).toEqual(gym.emptyEntry())

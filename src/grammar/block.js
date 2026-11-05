@@ -9,18 +9,20 @@
 //   emptyItem()                    a new, empty item
 //   itemStage(item)                { id: 'BL1' | 'BL2', prompt } while the item's core
 //                                  slots are being filled, null once it is complete
-//   itemSuggestions(item, typed)   chip groups; each chip's patch applies to the item
+//   itemSuggestions(item, typed, earlierItems)
+//                                  chip groups; each chip's patch applies to the item
 //   itemDigitTarget(item)          'number' (the item's own number), 'typed' or null
 //   itemTypeDigit(item, digit)     for the 'number' target
 //   itemTimes(item)                optional: item patch for the × key, or null
 //   itemDeleteLast(item)           the item with its last slot removed
 //   isItemEmpty(item), formatItem(item)
-//   addLabel, rests
+//   addLabel
+//   rests(items)                   rest presets for the finished block, most likely first
 
 import { formatRest } from './format.js'
 import { numberChoices, timeChoices } from './number.js'
 
-const ROUNDS = [2, 3, 4]
+const ROUNDS = [3, 2, 4]
 
 const done = { label: 'Done', patch: {}, commit: true, kind: 'done' }
 
@@ -59,7 +61,7 @@ export function getBlockSuggestions(b, cfg, typed) {
     return [
       {
         label: 'Rest',
-        chips: timeChoices(typed, cfg.rests).map((s) => ({
+        chips: timeChoices(typed, cfg.rests(b.items)).map((s) => ({
           label: `${formatRest(s)} rest`,
           patch: { block: { ...b, rest: s } },
           commit: true,
@@ -70,7 +72,7 @@ export function getBlockSuggestions(b, cfg, typed) {
   }
 
   const itemGroups = cfg
-    .itemSuggestions(lastItem(b), typed)
+    .itemSuggestions(lastItem(b), typed, b.items.slice(0, -1))
     .map((g) => ({ ...g, chips: g.chips.map((c) => ({ ...c, patch: { block: withLastItem(b, c.patch) } })) }))
   if (stage !== 'BL3') return itemGroups
 

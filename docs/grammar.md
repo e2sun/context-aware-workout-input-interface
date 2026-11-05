@@ -2,7 +2,8 @@
 
 This file is the spec for the prediction logic. Each stage in the transition
 table (section 6) corresponds to one state in the app, and each chip list is
-the set of suggestions shown in the prediction strip at that stage.
+the set of suggestions shown in the prediction strip at that stage. Chip lists
+in sections 2–6 say which chips exist; section 8 says what order they appear in.
 
 ## 1. Workout-level settings
 
@@ -73,7 +74,13 @@ Rules:
 | 100 | 1:30, 1:40, 1:45, 2:00 |
 | 150 | 2:15, 2:30, 2:45 |
 | 200 | 2:45, 3:00, 3:15, 3:30 |
+| 300 | 4:00, 4:30, 5:00 |
 | 400 | 5:30, 6:00, 6:30 |
+| 500 | 7:00, 7:30, 8:00, 8:30 |
+
+The estimated interval (section 8) is added when it isn't already a chip, e.g.
+`@ 2:05` for `4 x 100 Drill`. A distance with no row, such as a typed `125`,
+gets the estimate and one step either side.
 
 ## 4. Gym weight chips by exercise
 
@@ -171,7 +178,71 @@ to edit it.
 Test 5 changed from `25 Sprint` to `25 Free Sprint` because Effort is now its
 own slot that follows Stroke.
 
-## 8. Future steps
+## 8. Prediction ranking
+
+Ranking is rule-based and uses only the line or block being entered. It reorders
+chips and never removes one, so a low-ranked chip is still on its row, further
+along. The tables and `*For()` functions live in `src/grammar/swimVocab.js` and
+`src/grammar/gymVocab.js`; the generic helpers are in `src/grammar/rank.js`.
+
+### Swim
+
+| Slot | Context | Rule |
+|---|---|---|
+| Reps | None | 4, 8, 6, 10, 2, 3, 12, 16, 1 |
+| Distance | Reps | ≤ 2: 200 first · ≤ 4: 100 · ≤ 8: 50 · more: 25 |
+| Stroke | Distance | Free first. Kick next up to 50, IM next up to 150, Pull next beyond. IM last up to 50, Fly last from 75 |
+| Effort | Distance, stroke | ≤ 50: Fast · ≤ 150: Moderate · longer: Moderate, Build. Drill and Choice: Easy, Moderate first |
+| Interval | Distance, stroke, effort | Closest to the estimate first (below) |
+| Rest | Distance, effort | ≤ 100: 15 sec · ≤ 200: 20 sec · longer: 30 sec. Sprint: 30 sec |
+| Block rest | Whole round | The Rest rule, using the yards in one round; any Sprint item uses the Sprint order |
+
+Estimated interval = distance × 0.9 sec/yd × stroke factor × effort factor,
+rounded to 5 sec (up to 100 yd), 15 sec (up to 200 yd) or 30 sec (longer).
+
+| Stroke | Free, Pull | Back, Choice | IM | Breast | Fly | Kick | Drill |
+|---|---|---|---|---|---|---|---|
+| Factor | 1 | 1.1 | 1.15 | 1.2 | 1.25 | 1.35 | 1.4 |
+
+| Effort | Moderate | Fast, Build | Easy, Descend | Sprint |
+|---|---|---|---|---|
+| Factor | 1 | 1.05 | 1.1 | 1.25 |
+
+Effort factors scale the send-off, not swim speed: a sprint set leaves more recovery.
+
+### Gym
+
+Reps are entered before the exercise, so they rank the exercise instead of the
+other way round.
+
+| Slot | Context | Rule |
+|---|---|---|
+| Sets | None | 3, 4, 5, 2 |
+| Reps | Sets | ≤ 3: 10 first · 4: 8 · 5: 5 · more: 10 |
+| Block reps | None | 10, 12, 15, 8, 20, 5 |
+| Exercise | Reps, earlier block items | ≤ 6: heavy lifts · ≤ 12: Bench Press, Squats · more: bodyweight. Exercises already in the block go last |
+| Weight | Exercise, reps | Closest to a point between the lightest and heaviest preset: 75% up at ≤ 5 reps, 50% at ≤ 10, 25% above |
+| Rest | Exercise, reps | Rest tier below |
+| Block rest | All items | The most demanding item's tier |
+
+| Tier | Exercises | First chips |
+|---|---|---|
+| 0 | Bicep Curls, Push-Ups, Sit-Ups | 60 sec, 30 sec |
+| 1 | Shoulder Press, Rows, Pull-Ups, Lunges | 90 sec, 60 sec |
+| 2 | Squats, Bench Press | 2 min, 3 min |
+| 3 | Deadlift | 3 min, 2 min |
+
+≤ 5 reps moves an exercise up one tier and ≥ 15 reps moves it down one, within 0–3.
+
+### Both sports
+
+- **First number:** a swim number that is a multiple of 25 shows the `Single`
+  row first. A gym number above 6 does the same, since it is unlikely to be sets.
+- **Repeat count:** ×3, ×2, ×4.
+- **Typed numbers:** a typed value replaces the ranked chips for that slot, as
+  described in section 6, and its value is used as context for later slots.
+
+## 9. Future steps
 
 - **Swim equipment slot** — optional slot after Effort: Fins, Paddles,
   Snorkel, Pull Buoy, Kickboard; displayed as `w/ Fins`.
