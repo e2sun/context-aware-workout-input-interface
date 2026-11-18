@@ -23,6 +23,9 @@ export function workoutReducer(state, action) {
     case 'times':
       return { ...state, current: g.typeTimes(state.current) }
 
+    case 'at':
+      return { ...state, current: g.typeAt(state.current) }
+
     // Delete the last slot of the current line; if it is empty, remove the last finished line.
     case 'delete':
       if (g.isEmpty(state.current)) return { ...state, lines: state.lines.slice(0, -1) }

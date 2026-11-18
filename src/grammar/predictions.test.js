@@ -97,7 +97,7 @@ describe('swim: distances depend on reps', () => {
   it('a multiple of 25 offers single swims first, other numbers only sets', () => {
     const groups = (n) => swim.getSuggestions(typeNumber(initialState('swim'), n).current).map((g) => g.label)
     expect(groups(100)).toEqual(['Single', 'Set'])
-    expect(groups(8)).toEqual(['Set'])
+    expect(groups(8)).toEqual(['Set', 'Block'])
   })
 })
 
@@ -171,8 +171,9 @@ describe('gym: chips depend on sets and reps', () => {
 
   it('a number too high to be sets offers single sets first', () => {
     const groups = (n) => gym.getSuggestions(typeNumber(initialState('gym'), n).current).map((g) => g.label)
-    expect(groups(4)).toEqual(['Reps', 'Single'])
-    expect(groups(20)).toEqual(['Single', 'Reps'])
+    expect(groups(4)).toEqual(['Reps', 'Single', 'Block'])
+    expect(groups(20)).toEqual(['Single', 'Reps', 'Block'])
+    expect(groups(21)).toEqual(['Single', 'Reps'])
     expect(row(typeNumber(initialState('gym'), 20), 'Single')[0]).toBe('20 Push-Ups')
   })
 })

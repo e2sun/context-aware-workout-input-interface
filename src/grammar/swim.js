@@ -5,7 +5,7 @@
 //
 // Every sport grammar exports the same shape (see grammar/index.js):
 //   emptyEntry, getStage, getSuggestions, acceptsDigits, typeDigit, acceptsTimes,
-//   typeTimes, deleteLast, isEmpty, format
+//   typeTimes, acceptsAt, typeAt, deleteLast, isEmpty, format
 
 import {
   REPS,
@@ -19,11 +19,11 @@ import {
   blockRestsFor,
 } from './swimVocab.js'
 import { formatInterval, formatRest } from './format.js'
-import { appendDigit, dropDigit, timeChoices, finishGroups } from './number.js'
+import { appendDigit, dropDigit, timeChoices, typedSeconds, finishGroups } from './number.js'
 import * as block from './block.js'
 
 // `typed` is the number being typed for a later slot (see number.js), `times`
-// is set by the × key, and `block` is null for a normal set.
+// is set by the × key, `at` by the @ key, and `block` is null for a normal set.
 export function emptyEntry() {
   return {
     reps: null,
@@ -34,6 +34,7 @@ export function emptyEntry() {
     interval: null,
     rest: null,
     times: false,
+    at: false,
     typed: null,
     block: null,
   }
@@ -80,6 +81,17 @@ function modifierGroups(i) {
   if (i.equipment !== null) return []
   return i.effort === null ? [effortGroup(i), equipmentGroup(i)] : [equipmentGroup(i)]
 }
+
+// The interval row, shared by lines (where an interval finishes the line) and block items.
+function intervalGroup(i, typed, commit) {
+  return {
+    label: 'Interval',
+    chips: timeChoices(typed, intervalsFor(i)).map((s) => ({ label: `@ ${formatInterval(s)}`, patch: { interval: s }, commit })),
+  }
+}
+
+// The @ key starts typing an interval once the stroke is chosen.
+const atOpen = (i) => i.stroke !== null && i.interval === null
 
 // Chips once the first number is entered. Before ×: sets of it, plus single
 // swims when it can be a distance, which is then the likelier meaning.
@@ -140,12 +152,10 @@ const blockItem = {
     if (i.distance === null) return numberGroups(i, typed)
     if (i.stroke === null) return [strokeGroup(i.distance)]
     if (i.interval !== null) return []
-    const intervals = timeChoices(typed, intervalsFor(i))
-    return [
-      ...modifierGroups(i),
-      { label: 'Interval', chips: intervals.map((s) => ({ label: `@ ${formatInterval(s)}`, patch: { interval: s } })) },
-    ]
+    return [...modifierGroups(i), intervalGroup(i, typed, false)]
   },
+  itemAtOpen: atOpen,
+  itemAtSuggestions: (i, typed) => [intervalGroup(i, typed, false)],
   itemDigitTarget: (i) => digitTarget(i, i.interval === null),
   itemTypeDigit: (i, digit) => ({ ...i, reps: appendDigit(i.reps, digit) }),
   itemTimes: timesPatch,
@@ -157,8 +167,13 @@ const blockItem = {
 }
 
 // The stage is derived from which slots are filled, so there is no separate
-// stage variable to keep in sync.
+// stage variable to keep in sync. After the @ key only the interval is left to type.
 export function getStage(e) {
+  const stage = slotStage(e)
+  return e.at ? { ...stage, prompt: 'Interval time' } : stage
+}
+
+function slotStage(e) {
   if (e.block !== null) return block.getBlockStage(e.block, blockItem)
   if (!hasNumber(e)) return { id: 'S0', prompt: 'Reps or distance' }
   if (e.distance === null) return e.times ? { id: 'S2', prompt: 'Distance' } : { id: 'S1', prompt: 'Distance or stroke' }
@@ -174,14 +189,7 @@ const done = { label: 'Done', patch: {}, commit: true, kind: 'done' }
 
 function intervalAndRestGroups(e) {
   return [
-    {
-      label: 'Interval',
-      chips: timeChoices(e.typed, intervalsFor(e)).map((s) => ({
-        label: `@ ${formatInterval(s)}`,
-        patch: { interval: s },
-        commit: true,
-      })),
-    },
+    intervalGroup(e, e.typed, true),
     {
       label: 'Rest',
       chips: timeChoices(e.typed, restsFor(e)).map((s) => ({ label: `${formatRest(s)} rest`, patch: { rest: s }, commit: true })),
@@ -190,6 +198,7 @@ function intervalAndRestGroups(e) {
 }
 
 function lineSuggestions(e) {
+  if (e.at) return [intervalGroup(e, e.typed, true)]
   switch (getStage(e).id) {
     case 'S0':
       return [
@@ -199,7 +208,9 @@ function lineSuggestions(e) {
       ]
     case 'S1':
     case 'S2':
-      return numberGroups(e, e.typed)
+      return e.typed === null
+        ? [...numberGroups(e, null), block.roundsFirstGroup(blockItem, e.reps, emptyEntry())]
+        : numberGroups(e, e.typed)
     case 'SW1':
       return [strokeGroup(e.distance)]
     case 'SW2':
@@ -213,7 +224,7 @@ function lineSuggestions(e) {
 
 // Returns the prediction strip for the current stage as labelled groups of chips.
 export function getSuggestions(e) {
-  return finishGroups(e.block !== null ? block.getBlockSuggestions(e.block, blockItem, e.typed) : lineSuggestions(e))
+  return finishGroups(e.block !== null ? block.getBlockSuggestions(e.block, blockItem, e.typed, e.at) : lineSuggestions(e))
 }
 
 function entryDigitTarget(e) {
@@ -252,12 +263,23 @@ export function typeTimes(e) {
   return patch ? { ...e, ...patch } : e
 }
 
-// Removes the last typed digit, or else the most recent slot.
+// The @ key, shown in place of × once the stroke is chosen, starts typing an
+// interval: digits then show as a time and only the interval chip is offered.
+export function acceptsAt(e) {
+  return !e.at && (e.block !== null ? block.blockAcceptsAt(e.block, blockItem) : atOpen(e))
+}
+
+export function typeAt(e) {
+  return acceptsAt(e) ? { ...e, at: true } : e
+}
+
+// Removes the last typed digit, then the @, or else the most recent slot.
 export function deleteLast(e) {
   if (e.typed !== null) return { ...e, typed: dropDigit(e.typed) }
+  if (e.at) return { ...e, at: false }
   if (e.block !== null) {
     const next = block.deleteInBlock(e.block, blockItem)
-    return next ? { ...e, block: next } : emptyEntry()
+    return next ? { ...e, block: next } : block.exitBlock(e.block, emptyEntry(), 'reps')
   }
   return deleteSlot(e)
 }
@@ -267,10 +289,15 @@ export function isEmpty(e) {
 }
 
 // "8 x 50 Free Sprint w/ Fins @ :45" / "4 x 50 Kick, 15 sec rest" / "100 Free @ 1:30"
-// A number still being typed is shown at the end.
+// A number still being typed is shown at the end; after @ it is shown as a
+// time ("@ 2:20"), or as typed when it isn't a valid time.
 export function format(e) {
   let text = e.block !== null ? block.formatBlock(e.block, blockItem) : formatItem(e)
   if (e.block === null && e.rest !== null) text += `, ${formatRest(e.rest)} rest`
-  if (e.typed !== null) text += ` ${e.typed}`
+  if (e.at) text += ' @'
+  if (e.typed !== null) {
+    const seconds = e.at ? typedSeconds(e.typed) : null
+    text += ` ${seconds === null ? e.typed : formatInterval(seconds)}`
+  }
   return text
 }

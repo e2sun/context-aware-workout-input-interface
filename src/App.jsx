@@ -11,6 +11,7 @@ function keyAction(e) {
   if (e.metaKey || e.ctrlKey || e.altKey) return null
   if (/^[0-9]$/.test(e.key)) return { type: 'digit', digit: Number(e.key) }
   if (e.key === 'x' || e.key === 'X' || e.key === '*') return { type: 'times' }
+  if (e.key === '@') return { type: 'at' }
   if (e.key === 'Backspace') return { type: 'delete' }
   return null
 }
@@ -18,6 +19,9 @@ function keyAction(e) {
 export default function App() {
   const [state, dispatch] = useReducer(workoutReducer, 'swim', initialState)
   const g = getGrammar(state.sport)
+  // One keypad key is × while a count is being entered and @ once a value (interval, weight) can be typed.
+  const atEnabled = g.acceptsAt(state.current)
+  const symbol = atEnabled || state.current.at ? '@' : '×'
 
   useEffect(() => {
     const onKey = (e) => {
@@ -42,9 +46,10 @@ export default function App() {
       <PredictionStrip groups={g.getSuggestions(state.current)} onChip={(chip) => dispatch({ type: 'chip', chip })} />
       <NumberPad
         digitsEnabled={g.acceptsDigits(state.current)}
-        timesEnabled={g.acceptsTimes(state.current)}
+        symbol={symbol}
+        symbolEnabled={atEnabled || g.acceptsTimes(state.current)}
         onDigit={(digit) => dispatch({ type: 'digit', digit })}
-        onTimes={() => dispatch({ type: 'times' })}
+        onSymbol={() => dispatch({ type: atEnabled ? 'at' : 'times' })}
         onDelete={() => dispatch({ type: 'delete' })}
       />
     </main>

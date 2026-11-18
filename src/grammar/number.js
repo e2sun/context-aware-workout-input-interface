@@ -32,9 +32,9 @@ export function timeChoices(typed, presets) {
   return s === null ? [] : [s]
 }
 
-// Drops empty chip groups, and makes every chip clear the typed number.
+// Drops empty chip groups, and makes every chip clear the typed number and @ mode.
 export function finishGroups(groups) {
   return groups
     .filter((g) => g.chips.length)
-    .map((g) => ({ ...g, chips: g.chips.map((c) => ({ ...c, patch: { typed: null, ...c.patch } })) }))
+    .map((g) => ({ ...g, chips: g.chips.map((c) => ({ ...c, patch: { typed: null, at: false, ...c.patch } })) }))
 }

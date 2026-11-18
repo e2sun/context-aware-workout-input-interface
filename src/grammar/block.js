@@ -1,9 +1,12 @@
 // Multi-part blocks shared by the sport grammars: Rounds × (Item + Item [+ ...]) [Rest]
 // Stages BL1–BL5 follow docs/grammar.md section 6.
 //
-// A block is { items, closed, rounds, rest }; the last item may be incomplete,
-// `closed` is set by Finish Block and `rounds` by a Repeat chip. The typed
-// number (see number.js) lives on the entry and is passed in as `typed`.
+// A block is { items, closed, rounds, rest, roundsFirst }; the last item may be
+// incomplete and `closed` is set by Finish Block. `rounds` is set either by a
+// Repeat chip after Finish, or up front when the line starts as "3 × (", in
+// which case `roundsFirst` is true and the Repeat step is skipped. The typed
+// number (see number.js) lives on the entry and is passed in as `typed`, and
+// `at` says the @ key was pressed.
 //
 // Each sport passes an item config describing how one block item is entered:
 //   emptyItem()                    a new, empty item
@@ -14,6 +17,8 @@
 //   itemDigitTarget(item)          'number' (the item's own number), 'typed' or null
 //   itemTypeDigit(item, digit)     for the 'number' target
 //   itemTimes(item)                optional: item patch for the × key, or null
+//   itemAtOpen(item)               optional: true while the item's @ slot can be typed
+//   itemAtSuggestions(item, typed) chip groups while typing after the @ key
 //   itemDeleteLast(item)           the item with its last slot removed
 //   isItemEmpty(item), formatItem(item)
 //   addLabel
@@ -24,10 +29,13 @@ import { numberChoices, timeChoices } from './number.js'
 
 const ROUNDS = [3, 2, 4]
 
+// A first number up to this can be a round count ("3 × ("); above it, it can't.
+const MAX_ROUNDS_FIRST = 20
+
 const done = { label: 'Done', patch: {}, commit: true, kind: 'done' }
 
-export function newBlock(cfg) {
-  return { items: [cfg.emptyItem()], closed: false, rounds: null, rest: null }
+export function newBlock(cfg, rounds = null) {
+  return { items: [cfg.emptyItem()], closed: false, rounds, rest: null, roundsFirst: rounds !== null }
 }
 
 function lastItem(b) {
@@ -39,15 +47,19 @@ function withLastItem(b, patch) {
 }
 
 export function getBlockStage(b, cfg) {
-  if (b.rounds !== null) return { id: 'BL5', prompt: 'Rest' }
-  if (b.closed) return { id: 'BL4', prompt: 'Repeat' }
+  if (b.closed) return b.rounds !== null ? { id: 'BL5', prompt: 'Rest' } : { id: 'BL4', prompt: 'Repeat' }
   return cfg.itemStage(lastItem(b)) ?? { id: 'BL3', prompt: 'Add or finish block' }
 }
 
 // Every chip replaces the whole `block` object, so the reducer's shallow patch
 // merge works unchanged.
-export function getBlockSuggestions(b, cfg, typed) {
+export function getBlockSuggestions(b, cfg, typed, at = false) {
   const stage = getBlockStage(b, cfg).id
+  const forItem = (groups) =>
+    groups.map((g) => ({ ...g, chips: g.chips.map((c) => ({ ...c, patch: { block: withLastItem(b, c.patch) } })) }))
+
+  // After @, only the value being typed can be chosen.
+  if (at) return forItem(cfg.itemAtSuggestions(lastItem(b), typed))
 
   if (stage === 'BL4') {
     return [
@@ -71,9 +83,7 @@ export function getBlockSuggestions(b, cfg, typed) {
     ]
   }
 
-  const itemGroups = cfg
-    .itemSuggestions(lastItem(b), typed, b.items.slice(0, -1))
-    .map((g) => ({ ...g, chips: g.chips.map((c) => ({ ...c, patch: { block: withLastItem(b, c.patch) } })) }))
+  const itemGroups = forItem(cfg.itemSuggestions(lastItem(b), typed, b.items.slice(0, -1)))
   if (stage !== 'BL3') return itemGroups
 
   const add = { label: cfg.addLabel, patch: { block: { ...b, items: [...b.items, cfg.emptyItem()] } } }
@@ -96,21 +106,28 @@ export function blockTimes(b, cfg) {
   return patch ? withLastItem(b, patch) : null
 }
 
+export function blockAcceptsAt(b, cfg) {
+  return !b.closed && (cfg.itemAtOpen?.(lastItem(b)) ?? false)
+}
+
 // Removes the last slot of the block. Returns null when the block is already
-// empty, so the sport can go back to an empty line.
+// empty, so the sport can go back to the line it came from (see exitBlock).
+// Rounds chosen up front stay until the whole block is deleted.
 export function deleteInBlock(b, cfg) {
   const item = lastItem(b)
-  if (b.rounds !== null) return { ...b, rounds: null }
+  if (b.closed && b.rounds !== null && !b.roundsFirst) return { ...b, rounds: null }
   if (b.closed) return { ...b, closed: false }
   if (!cfg.isItemEmpty(item)) return withLastItem(b, cfg.itemDeleteLast(item))
   return b.items.length === 1 ? null : { ...b, items: b.items.slice(0, -1) }
 }
 
-// "3 × (10 Squats + 10 Push-Ups + 20 Lunges), 60 sec rest"; while building: "(10 Squats + 10"
+// "3 × (10 Squats + 10 Push-Ups + 20 Lunges), 60 sec rest"; while building:
+// "(10 Squats + 10", or "3 × (10 Squats + 10" when the rounds came first.
 export function formatBlock(b, cfg) {
   const items = b.items.map(cfg.formatItem).join(' + ')
-  if (!b.closed) return `(${items}`
-  let text = b.rounds === null ? `(${items})` : `${b.rounds} × (${items})`
+  const rounds = b.rounds === null ? '' : `${b.rounds} × `
+  if (!b.closed) return `${rounds}(${items}`
+  let text = `${rounds}(${items})`
   if (b.rest !== null) text += `, ${formatRest(b.rest)} rest`
   return text
 }
@@ -119,3 +136,19 @@ export const startBlockGroup = (cfg) => ({
   label: null,
   chips: [{ label: 'Start Block', patch: { block: newBlock(cfg) }, kind: 'done' }],
 })
+
+// Offered once a line's first number is typed, so "3 ×" can go on to "3 × (".
+// `emptyEntry` is the sport's empty line, which clears the number that became the rounds.
+export const roundsFirstGroup = (cfg, n, emptyEntry) => ({
+  label: 'Block',
+  chips:
+    n <= MAX_ROUNDS_FIRST
+      ? [{ label: `${n} × (`, patch: { ...emptyEntry, block: newBlock(cfg, n) }, kind: 'done' }]
+      : [],
+})
+
+// The line to go back to when an empty block is deleted: a block started as
+// "3 × (" goes back to the "3 x" it came from.
+export function exitBlock(b, emptyEntry, numberSlot) {
+  return b.roundsFirst ? { ...emptyEntry, [numberSlot]: b.rounds, times: true } : emptyEntry
+}

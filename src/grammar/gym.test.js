@@ -262,3 +262,83 @@ describe('gym blocks', () => {
     expect(s).toEqual(initialState('swim'))
   })
 })
+
+describe('gym @ key', () => {
+  const press = (state, action) => workoutReducer(state, action)
+  const typeNumber = (state, n) => [...String(n)].reduce((s, d) => press(s, { type: 'digit', digit: Number(d) }), state)
+  const at = (state) => press(state, { type: 'at' })
+  const del = (state) => press(state, { type: 'delete' })
+  const chipLabels = (state) => gym.getSuggestions(state.current).flatMap((g) => g.chips.map((c) => c.label))
+  const text = (state) => gym.format(state.current)
+
+  it('types a weight that is not a preset: 4 x 8 Bench Press @ 140 lb', () => {
+    let s = at(enter(['4', '4 x 8', 'Bench Press']))
+    expect(text(s)).toBe('4 x 8 Bench Press @')
+    expect(gym.getStage(s.current).prompt).toBe('Weight')
+    expect(chipLabels(s)).toEqual(['@ 135 lb', '@ 155 lb', '@ 115 lb', '@ 95 lb', '@ 185 lb'])
+    s = typeNumber(s, 140)
+    expect(text(s)).toBe('4 x 8 Bench Press @ 140 lb')
+    expect(chipLabels(s)).toEqual(['@ 140 lb'])
+    s = tap(s, '@ 140 lb')
+    expect(gym.getStage(s.current).id).toBe('GY3')
+    expect(tap(s, '2 min rest').lines).toEqual(['4 x 8 Bench Press @ 140 lb, 2 min rest'])
+  })
+
+  it('is offered only between the exercise and the weight', () => {
+    expect(gym.acceptsAt(enter(['4', '4 x 8']).current)).toBe(false)
+    expect(gym.acceptsAt(enter(['4', '4 x 8', 'Bench Press']).current)).toBe(true)
+    expect(gym.acceptsAt(enter(['4', '4 x 8', 'Bench Press', '@ 135 lb']).current)).toBe(false)
+  })
+
+  it('works for bodyweight exercises, which have no presets', () => {
+    const s = at(enter(['3', '3 x 10', 'Push-Ups']))
+    expect(chipLabels(s)).toEqual([])
+    expect(chipLabels(typeNumber(s, 25))).toEqual(['@ 25 lb'])
+  })
+
+  it('delete removes digits, then the @', () => {
+    let s = typeNumber(at(enter(['4', '4 x 8', 'Bench Press'])), 14)
+    for (const step of ['4 x 8 Bench Press @ 1 lb', '4 x 8 Bench Press @', '4 x 8 Bench Press']) {
+      s = del(s)
+      expect(text(s)).toBe(step)
+    }
+  })
+
+  it('works on a block item', () => {
+    let s = typeNumber(at(enter(['Start Block', '10', '10 Squats'])), 105)
+    expect(text(s)).toBe('(10 Squats @ 105 lb')
+    expect(chipLabels(s)).toEqual(['@ 105 lb'])
+    s = tap(s, '@ 105 lb')
+    expect(chipLabels(s)).toEqual(['+ Add Exercise'])
+  })
+})
+
+describe('gym blocks typed rounds first: 3 × (', () => {
+  const press = (state, action) => workoutReducer(state, action)
+  const typeNumber = (state, n) => [...String(n)].reduce((s, d) => press(s, { type: 'digit', digit: Number(d) }), state)
+  const del = (state) => press(state, { type: 'delete' })
+  const stage = (state) => gym.getStage(state.current).id
+  const text = (state) => gym.format(state.current)
+
+  it('3 x then 3 × ( builds a circuit left to right', () => {
+    let s = tap(press(typeNumber(initialState('gym'), 3), { type: 'times' }), '3 × (')
+    expect(text(s)).toBe('3 × (')
+    s = ['10', '10 Push-Ups', '+ Add Exercise', '15', '15 Sit-Ups', '+ Add Exercise', '20', '20 Lunges'].reduce(tap, s)
+    expect(text(s)).toBe('3 × (10 Push-Ups + 15 Sit-Ups + 20 Lunges')
+    s = tap(s, 'Finish Block')
+    expect(stage(s)).toBe('BL5')
+    expect(tap(s, '60 sec rest').lines).toEqual(['3 × (10 Push-Ups + 15 Sit-Ups + 20 Lunges), 60 sec rest'])
+  })
+
+  it('works straight from the typed number, without ×', () => {
+    const s = tap(typeNumber(initialState('gym'), 4), '4 × (')
+    expect(text(s)).toBe('4 × (')
+  })
+
+  it('deleting the empty block goes back to 3 x', () => {
+    let s = tap(press(typeNumber(initialState('gym'), 3), { type: 'times' }), '3 × (')
+    s = del(s)
+    expect([stage(s), text(s)]).toEqual(['S2', '3 x'])
+    expect(tap(typeNumber(s, 12), 'Squats').current.sets).toBe(3)
+  })
+})

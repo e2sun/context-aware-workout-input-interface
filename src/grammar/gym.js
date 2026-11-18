@@ -18,9 +18,9 @@ import { appendDigit, dropDigit, numberChoices, timeChoices, finishGroups } from
 import * as block from './block.js'
 
 // `typed` is the number being typed for a later slot (see number.js), `times`
-// is set by the × key, and `block` is null for a normal set.
+// is set by the × key, `at` by the @ key, and `block` is null for a normal set.
 export function emptyEntry() {
-  return { sets: null, reps: null, exercise: null, weight: null, rest: null, times: false, typed: null, block: null }
+  return { sets: null, reps: null, exercise: null, weight: null, rest: null, times: false, at: false, typed: null, block: null }
 }
 
 // The first typed number is held in `sets` until a chip decides what it is:
@@ -47,6 +47,9 @@ function weightGroup(i, typed) {
   }
 }
 
+// The @ key starts typing a weight once the exercise is chosen.
+const atOpen = (i) => i.exercise !== null && i.weight === null
+
 // Block item: Reps Exercise [Weight], e.g. "10 Squats @ 95 lb"
 const blockItem = {
   emptyItem: () => ({ reps: null, exercise: null, weight: null }),
@@ -67,6 +70,8 @@ const blockItem = {
     }
     return i.weight === null ? [weightGroup(i, typed)] : []
   },
+  itemAtOpen: atOpen,
+  itemAtSuggestions: (i, typed) => [weightGroup(i, typed)],
   itemDigitTarget(i) {
     if (i.exercise === null) return 'number'
     return i.weight === null ? 'typed' : null
@@ -83,7 +88,13 @@ const blockItem = {
   rests: blockRestsFor,
 }
 
+// After the @ key only the weight is left to type.
 export function getStage(e) {
+  const stage = slotStage(e)
+  return e.at ? { ...stage, prompt: 'Weight' } : stage
+}
+
+function slotStage(e) {
   if (e.block !== null) return block.getBlockStage(e.block, blockItem)
   if (!hasNumber(e)) return { id: 'S0', prompt: 'Sets or reps' }
   if (e.reps === null) return e.times ? { id: 'S2', prompt: 'Reps' } : { id: 'S1', prompt: 'Reps or exercise' }
@@ -119,6 +130,7 @@ function numberGroups(e) {
 }
 
 function lineSuggestions(e) {
+  if (e.at) return [weightGroup(e, e.typed)]
   switch (getStage(e).id) {
     case 'S0':
       return [
@@ -127,7 +139,7 @@ function lineSuggestions(e) {
       ]
     case 'S1':
     case 'S2':
-      return numberGroups(e)
+      return e.typed === null ? [...numberGroups(e), block.roundsFirstGroup(blockItem, e.sets, emptyEntry())] : numberGroups(e)
     case 'GY1':
       return [{ label: 'Exercise', chips: exercisesFor(e.reps).map((x) => ({ label: x, patch: { exercise: x } })) }]
     case 'GY2':
@@ -140,7 +152,7 @@ function lineSuggestions(e) {
 }
 
 export function getSuggestions(e) {
-  return finishGroups(e.block !== null ? block.getBlockSuggestions(e.block, blockItem, e.typed) : lineSuggestions(e))
+  return finishGroups(e.block !== null ? block.getBlockSuggestions(e.block, blockItem, e.typed, e.at) : lineSuggestions(e))
 }
 
 // Where the number pad goes: 'number' edits the first number (`sets`), 'typed'
@@ -179,12 +191,23 @@ export function typeTimes(e) {
   return e.sets !== null && e.reps === null && !e.times ? { ...e, times: true } : e
 }
 
-// Removes the last typed digit, or else the most recent slot.
+// The @ key, shown in place of × once the exercise is chosen, starts typing a
+// weight: digits then show in pounds and only the weight chip is offered.
+export function acceptsAt(e) {
+  return !e.at && (e.block !== null ? block.blockAcceptsAt(e.block, blockItem) : atOpen(e))
+}
+
+export function typeAt(e) {
+  return acceptsAt(e) ? { ...e, at: true } : e
+}
+
+// Removes the last typed digit, then the @, or else the most recent slot.
 export function deleteLast(e) {
   if (e.typed !== null) return { ...e, typed: dropDigit(e.typed) }
+  if (e.at) return { ...e, at: false }
   if (e.block !== null) {
     const next = block.deleteInBlock(e.block, blockItem)
-    return next ? { ...e, block: next } : emptyEntry()
+    return next ? { ...e, block: next } : block.exitBlock(e.block, emptyEntry(), 'sets')
   }
   if (e.weight !== null) return { ...e, weight: null }
   // Undoing a single set's exercise puts its reps back as the typed number.
@@ -201,7 +224,7 @@ export function isEmpty(e) {
 }
 
 // "4 x 8 Bench Press @ 135 lb" / "4 x 5 Deadlift @ 185 lb, 2 min rest" / "20 Push-Ups"
-// A number still being typed is shown at the end.
+// A number still being typed is shown at the end; after @ it is shown in pounds.
 export function format(e) {
   let text
   if (e.block !== null) {
@@ -213,6 +236,7 @@ export function format(e) {
     if (e.weight !== null) text += ` @ ${e.weight} lb`
     if (e.rest !== null) text += `, ${formatRest(e.rest)} rest`
   }
-  if (e.typed !== null) text += ` ${e.typed}`
+  if (e.at) text += ' @'
+  if (e.typed !== null) text += e.at ? ` ${e.typed} lb` : ` ${e.typed}`
   return text
 }

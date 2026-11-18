@@ -59,7 +59,10 @@ Without sets the line is a single set, e.g. `20 Push-Ups`: type `n` and tap
 | Block rest | Optional | Same rest chips as the sport | `, 1 min rest` |
 
 Rules:
-- A block is started with the **Start Block** chip, shown at S0 in both tabs.
+- A block is started with the **Start Block** chip, shown at S0 in both tabs,
+  or rounds first: after a first number `n` (≤ 20), typed or tapped, with or
+  without ×, the `n × (` chip opens a block that already repeats `n` times.
+  Finish Block then skips BL4 and goes straight to BL5.
 - Items may carry equipment and an interval (swim) or weight (gym); rest is
   block-level only.
 - Item modifiers are filled in display order: once a swim item has equipment,
@@ -114,7 +117,7 @@ so entries can be compared for errors.
 ## 6. Stages and transitions
 
 **Typed numbers:** chips are predictions, not the only choices. Wherever a
-slot takes a number, the number pad (or a computer keyboard: digits, `x`,
+slot takes a number, the number pad (or a computer keyboard: digits, `x`, `@`,
 Backspace) builds a value and the chips for that slot are replaced by one chip
 for it, which the user taps to confirm what the number means:
 
@@ -128,6 +131,22 @@ for it, which the user taps to confirm what the number means:
 A time whose seconds part is 60 or more (e.g. `175`) gets no time chip.
 Backspace removes typed digits before any slot.
 
+**The × / @ key:** the keypad's symbol key is **×** while a count is being
+entered (S1, BL2) and becomes **@** once the slot written with `@` is open:
+swim after the stroke until the interval is set, gym after the exercise until
+the weight is set, in lines and block items alike. Pressing @ shows ` @` in the
+line, hides every other chip row, and shows the typed digits as that value
+(`@ 2:20`, `@ 140 lb`). Only the presets for that slot are shown, replaced by
+the typed value's chip; tapping either fills the slot as usual. Backspace
+removes typed digits, then the @. Typing without @ keeps the behaviour above,
+where a swim time can still become an interval or a rest.
+
+| Keys after `10 x 75 Free` | Line shows | Chips |
+|---|---|---|
+| @ | `10 x 75 Free @` | `@ 1:10`, `@ 1:05`, `@ 1:15`, `@ 1:20` |
+| @ 2 2 0 | `10 x 75 Free @ 2:20` | `@ 2:20` |
+| @ 1 7 5 | `10 x 75 Free @ 175` | None (not a valid time) |
+
 
 **Ending a line:** a **Done** chip is shown whenever the remaining slots are
 all optional. When the user fills the *last* possible slot (swim interval/rest,
@@ -136,8 +155,8 @@ gym rest, block rest), the line is committed automatically — no extra tap.
 | # | Stage | Chips shown | Tap → next stage |
 |---|---|---|---|
 | S0 | Line start | Number pad · Swim: reps, distance (`100 yd` …) · Gym: sets · **Start Block** | Number `n` → S1 · Swim distance → SW1 · Start Block → BL1 |
-| S1 | Number entered | **Swim:** `n x 25/50/100/200`, `n Stroke` (single swim, when `n` is a multiple of 25) · **Gym:** `n x 5/8/10/12`, `n Exercise` (single set) · **×** key | `n x d` → SW1 / GY1 · single → SW2 / GY2 · × → S2 |
-| S2 | `n x` typed | Swim: distance chips, or type a distance → Stroke · Gym: reps chips, or type reps → Exercise | → SW1 / SW2 · GY1 / GY2 |
+| S1 | Number entered | **Swim:** `n x 25/50/100/200`, `n Stroke` (single swim, when `n` is a multiple of 25) · **Gym:** `n x 5/8/10/12`, `n Exercise` (single set) · **×** key | `n x d` → SW1 / GY1 · single → SW2 / GY2 · × → S2 · `n × (` → BL1 |
+| S2 | `n x` typed | Swim: distance chips, or type a distance → Stroke · Gym: reps chips, or type reps → Exercise · `n × (` | → SW1 / SW2 · GY1 / GY2 · `n × (` → BL1 |
 | SW1 | Reps x distance done | Stroke / Type | → SW2 |
 | SW2 | Stroke done | Effort, Equipment, Interval (by distance), Rest, **Done** | Effort → SW3 · Equipment → SW4 · Interval/Rest → commit · Done → commit |
 | SW3 | Effort done | Equipment, Interval (by distance), Rest, **Done** | Equipment → SW4 · Interval/Rest → commit · Done → commit |
@@ -147,7 +166,7 @@ gym rest, block rest), the line is committed automatically — no extra tap.
 | GY3 | Weight done | Rest, **Done** | Rest → commit · Done → commit |
 | BL1 | Block item start | Swim: reps chips, distance chips (`100 yd` …) · Gym: reps chips · or number pad | → BL2 |
 | BL2 | Item number done | Swim: `n x d`, `n Stroke`, then Stroke · Gym: `r Exercise` | → BL3 |
-| BL3 | Item core done | Swim: Effort, Equipment, Interval · Gym: Weight · plus `+ Add`, `Finish Block`* | Modifier → BL3 (that modifier removed) · `+ Add` → BL1 · Finish → BL4 |
+| BL3 | Item core done | Swim: Effort, Equipment, Interval · Gym: Weight · plus `+ Add`, `Finish Block`* | Modifier → BL3 (that modifier removed) · `+ Add` → BL1 · Finish → BL4 (BL5 if the rounds came first) |
 | BL4 | Block closed | `Repeat ×2/×3/×4`, or type a count | → BL5 |
 | BL5 | Rounds chosen | Rest, **Done** (number pad still edits the count) | Rest → commit · Done → commit |
 
@@ -157,6 +176,10 @@ Backspace inside a block steps back one slot: BL5 → BL4 (a typed count one dig
 the item's last modifier and then its core slots one at a time (→ BL2 → BL1,
 numbers one digit at a time), an empty item is removed (→ previous item's
 BL3), and deleting an empty block returns to S0.
+
+A block started with `n × (` keeps its rounds while it is edited: Finish
+Block → BL5, Backspace at BL5 → BL3, and deleting the empty block returns to
+`n x` (S2).
 
 Commit → the line is added to the workout and the next line starts at S0.
 
