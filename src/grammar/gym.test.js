@@ -97,28 +97,30 @@ describe('gym blocks', () => {
   const groupLabels = (state) => gym.getSuggestions(state.current).map((g) => g.label)
   const text = (state) => gym.format(state.current)
 
-  const opened = () => tap(initialState('gym'), 'Start Block')
-  const started = () => tap(typeNumber(opened(), 10), '10 Squats')
+  // A block is entered as written: the rounds, then `n × (`.
+  const opened = (n = 3) => tap(typeNumber(initialState('gym'), n), `${n} × (`)
+  const started = (n = 3) => tap(typeNumber(opened(n), 10), '10 Squats')
 
-  // 10 Squats + 10 Push-Ups + 20 Lunges, not yet finished
-  const threeItems = () => {
-    let s = tap(started(), '+ Add Exercise')
+  // 3 × (10 Squats + 10 Push-Ups + 20 Lunges, not yet finished
+  const threeItems = (n = 3) => {
+    let s = tap(started(n), '+ Add Exercise')
     s = tap(tap(s, '10'), '10 Push-Ups')
     s = tap(typeNumber(tap(s, '+ Add Exercise'), 20), '20 Lunges')
     return s
   }
-  const repeated = (label = 'Repeat ×3') => tap(tap(threeItems(), 'Finish Block'), label)
+  const finished = (n = 3) => tap(threeItems(n), 'Finish Block')
 
-  it('offers Start Block at the start of every line, and not after a number', () => {
-    expect(chipLabels(initialState('gym'))).toContain('Start Block')
-    expect(chipLabels(typeNumber(initialState('gym'), 3))).not.toContain('Start Block')
-    expect(chipLabels(enter(['3', '3 x 10', 'Squats', 'Done']))).toContain('Start Block')
+  it('offers n × ( after the first number, and nothing at line start', () => {
+    expect(groupLabels(initialState('gym'))).toEqual(['Sets'])
+    expect(chipLabels(typeNumber(initialState('gym'), 3))).toContain('3 × (')
+    expect(chipLabels(tap(initialState('gym'), '3'))).toContain('3 × (')
+    expect(chipLabels(typeNumber(initialState('gym'), 21)).join()).not.toContain('×')
   })
 
-  it('Start Block opens an empty block waiting for the first item', () => {
+  it('n × ( opens an empty block waiting for the first item', () => {
     const s = opened()
     expect(stage(s)).toBe('BL1')
-    expect(text(s)).toBe('(')
+    expect(text(s)).toBe('3 × (')
     expect(gym.acceptsDigits(s.current)).toBe(true)
     expect(chipLabels(s)).toEqual(['10', '12', '15', '8', '20', '5'])
   })
@@ -126,7 +128,7 @@ describe('gym blocks', () => {
   it('starts a block with the first exercise', () => {
     const s = started()
     expect(stage(s)).toBe('BL3')
-    expect(text(s)).toBe('(10 Squats')
+    expect(text(s)).toBe('3 × (10 Squats')
     // Weight chips for the item; a block needs two items before it can be finished.
     expect(chipLabels(s)).toEqual(['@ 135 lb', '@ 185 lb', '@ 95 lb', '@ 225 lb', '+ Add Exercise'])
     expect(s.lines).toEqual([])
@@ -140,88 +142,80 @@ describe('gym blocks', () => {
     expect(chipLabels(s)).toContain('10 Push-Ups')
 
     s = threeItems()
-    expect(text(s)).toBe('(10 Squats + 10 Push-Ups + 20 Lunges')
+    expect(text(s)).toBe('3 × (10 Squats + 10 Push-Ups + 20 Lunges')
     expect(chipLabels(s)).toEqual(['+ Add Exercise', 'Finish Block'])
   })
 
   it('adds a weight to a block item', () => {
-    let s = tap(started(), '@ 95 lb')
-    expect(text(s)).toBe('(10 Squats @ 95 lb')
+    let s = tap(started(2), '@ 95 lb')
+    expect(text(s)).toBe('2 × (10 Squats @ 95 lb')
     expect(chipLabels(s)).toEqual(['+ Add Exercise'])
     s = tap(tap(tap(s, '+ Add Exercise'), '10'), '10 Push-Ups')
-    s = tap(tap(tap(s, 'Finish Block'), 'Repeat ×2'), 'Done')
+    s = tap(tap(s, 'Finish Block'), 'Done')
     expect(s.lines).toEqual(['2 × (10 Squats @ 95 lb + 10 Push-Ups)'])
   })
 
-  it('finishing a block offers the repeat options', () => {
-    const s = tap(threeItems(), 'Finish Block')
-    expect(stage(s)).toBe('BL4')
-    expect(chipLabels(s)).toEqual(['Repeat ×3', 'Repeat ×2', 'Repeat ×4'])
-    expect(text(s)).toBe('(10 Squats + 10 Push-Ups + 20 Lunges)')
+  it('finishing a block goes straight to the rest', () => {
+    const s = finished()
+    expect([stage(s), text(s)]).toEqual(['BL4', '3 × (10 Squats + 10 Push-Ups + 20 Lunges)'])
+    expect(chipLabels(s)).toEqual(['2 min rest', '3 min rest', '90 sec rest', '60 sec rest', '30 sec rest', 'Done'])
   })
 
-  it('types a custom repeat count, then taps it', () => {
-    let s = typeNumber(tap(threeItems(), 'Finish Block'), 12)
-    expect(stage(s)).toBe('BL4')
-    expect(text(s)).toBe('(10 Squats + 10 Push-Ups + 20 Lunges) 12')
-    expect(chipLabels(s)).toEqual(['Repeat ×12'])
-    s = del(s)
-    expect(chipLabels(s)).toEqual(['Repeat ×1'])
-    s = tap(tap(typeNumber(del(s), 6), 'Repeat ×6'), 'Done')
-    expect(s.lines).toEqual(['6 × (10 Squats + 10 Push-Ups + 20 Lunges)'])
+  it('a typed round count becomes the block', () => {
+    const s = tap(typeNumber(initialState('gym'), 12), '12 × (')
+    expect(text(s)).toBe('12 × (')
+    const done = ['10', '10 Push-Ups', '+ Add Exercise', '10', '10 Sit-Ups', 'Finish Block', 'Done'].reduce(tap, s)
+    expect(done.lines).toEqual(['12 × (10 Push-Ups + 10 Sit-Ups)'])
   })
 
   it('types a custom weight for a block item', () => {
     const s = typeNumber(started(), 105)
     expect(chipLabels(s)).toEqual(['@ 105 lb', '+ Add Exercise'])
-    expect(text(tap(s, '@ 105 lb'))).toBe('(10 Squats @ 105 lb')
+    expect(text(tap(s, '@ 105 lb'))).toBe('3 × (10 Squats @ 105 lb')
   })
 
   it('types a custom block rest', () => {
-    const s = tap(typeNumber(repeated(), 45), '45 sec rest')
+    const s = tap(typeNumber(finished(), 45), '45 sec rest')
     expect(s.lines).toEqual(['3 × (10 Squats + 10 Push-Ups + 20 Lunges), 45 sec rest'])
   })
 
-  it('applying a repetition then Done commits the grouped block', () => {
-    let s = repeated()
-    expect(stage(s)).toBe('BL5')
-    expect(text(s)).toBe('3 × (10 Squats + 10 Push-Ups + 20 Lunges)')
-    expect(chipLabels(s)).toEqual(['2 min rest', '3 min rest', '90 sec rest', '60 sec rest', '30 sec rest', 'Done'])
-    s = tap(s, 'Done')
+  it('Done commits the block without a rest', () => {
+    const s = tap(finished(), 'Done')
     expect(s.lines).toEqual(['3 × (10 Squats + 10 Push-Ups + 20 Lunges)'])
     expect(s.current).toEqual(gym.emptyEntry())
     expect(stage(s)).toBe('S0')
   })
 
   it('a block rest commits the block', () => {
-    const s = tap(repeated(), '90 sec rest')
+    const s = tap(finished(), '90 sec rest')
     expect(s.lines).toEqual(['3 × (10 Squats + 10 Push-Ups + 20 Lunges), 90 sec rest'])
   })
 
   it('a block can follow a normal set in the same workout', () => {
-    let s = enter(['4', '4 x 8', 'Bench Press', '@ 135 lb', 'Done', 'Start Block', '10', '10 Squats'])
+    let s = enter(['4', '4 x 8', 'Bench Press', '@ 135 lb', 'Done', '2', '2 × (', '10', '10 Squats'])
     s = tap(tap(tap(s, '+ Add Exercise'), '10'), '10 Push-Ups')
-    s = tap(tap(tap(s, 'Finish Block'), 'Repeat ×2'), 'Done')
+    s = tap(tap(s, 'Finish Block'), 'Done')
     expect(s.lines).toEqual(['4 x 8 Bench Press @ 135 lb', '2 × (10 Squats + 10 Push-Ups)'])
   })
 
-  it('deletes back through a block one slot at a time', () => {
-    let s = repeated()
+  it('deletes back through a block one slot at a time, then to n x', () => {
+    let s = finished()
     const expected = [
-      ['BL4', '(10 Squats + 10 Push-Ups + 20 Lunges)'],
-      ['BL3', '(10 Squats + 10 Push-Ups + 20 Lunges'],
-      ['BL2', '(10 Squats + 10 Push-Ups + 20'],
-      ['BL2', '(10 Squats + 10 Push-Ups + 2'],
-      ['BL1', '(10 Squats + 10 Push-Ups + '],
-      ['BL3', '(10 Squats + 10 Push-Ups'],
-      ['BL2', '(10 Squats + 10'],
-      ['BL2', '(10 Squats + 1'],
-      ['BL1', '(10 Squats + '],
-      ['BL3', '(10 Squats'],
-      ['BL2', '(10'],
-      ['BL2', '(1'],
-      ['BL1', '('],
-      // Deleting the empty block closes it.
+      ['BL3', '3 × (10 Squats + 10 Push-Ups + 20 Lunges'],
+      ['BL2', '3 × (10 Squats + 10 Push-Ups + 20'],
+      ['BL2', '3 × (10 Squats + 10 Push-Ups + 2'],
+      ['BL1', '3 × (10 Squats + 10 Push-Ups + '],
+      ['BL3', '3 × (10 Squats + 10 Push-Ups'],
+      ['BL2', '3 × (10 Squats + 10'],
+      ['BL2', '3 × (10 Squats + 1'],
+      ['BL1', '3 × (10 Squats + '],
+      ['BL3', '3 × (10 Squats'],
+      ['BL2', '3 × (10'],
+      ['BL2', '3 × (1'],
+      ['BL1', '3 × ('],
+      // Deleting the empty block goes back to the rounds as "3 x".
+      ['S2', '3 x'],
+      ['S1', '3'],
       ['S0', ''],
     ]
     for (const step of expected) {
@@ -231,20 +225,25 @@ describe('gym blocks', () => {
     expect(s).toEqual(initialState('gym'))
   })
 
+  it('after deleting the empty block, 3 x can become a normal set', () => {
+    const s = del(opened())
+    expect(tap(tap(typeNumber(s, 12), 'Squats'), 'Done').lines).toEqual(['3 x 12 Squats'])
+  })
+
   it('delete removes an item weight before its exercise', () => {
     const s = del(tap(started(), '@ 135 lb'))
-    expect([stage(s), text(s)]).toEqual(['BL3', '(10 Squats'])
+    expect([stage(s), text(s)]).toEqual(['BL3', '3 × (10 Squats'])
   })
 
   it('typing while adding an item edits its reps', () => {
     const s = typeNumber(tap(started(), '+ Add Exercise'), 15)
-    expect(text(s)).toBe('(10 Squats + 15')
+    expect(text(s)).toBe('3 × (10 Squats + 15')
     expect(chipLabels(s)).toContain('15 Lunges')
   })
 
   it('delete on an empty line removes the committed block', () => {
-    let s = tap(repeated('Repeat ×4'), 'Done')
-    s = del(tap(s, 'Start Block'))
+    let s = tap(finished(4), 'Done')
+    s = del(del(del(tap(tap(s, '3'), '3 × ('))))
     expect(s.lines).toEqual(['4 × (10 Squats + 10 Push-Ups + 20 Lunges)'])
     expect(stage(s)).toBe('S0')
     s = del(s)
@@ -252,7 +251,7 @@ describe('gym blocks', () => {
   })
 
   it('reset clears a block in progress', () => {
-    const s = press(repeated(), { type: 'reset' })
+    const s = press(finished(), { type: 'reset' })
     expect(s).toEqual(initialState('gym'))
     expect(enter(['3', '3 x 10', 'Squats', 'Done']).lines).toEqual(['3 x 10 Squats'])
   })
@@ -305,40 +304,10 @@ describe('gym @ key', () => {
   })
 
   it('works on a block item', () => {
-    let s = typeNumber(at(enter(['Start Block', '10', '10 Squats'])), 105)
-    expect(text(s)).toBe('(10 Squats @ 105 lb')
+    let s = typeNumber(at(enter(['3', '3 × (', '10', '10 Squats'])), 105)
+    expect(text(s)).toBe('3 × (10 Squats @ 105 lb')
     expect(chipLabels(s)).toEqual(['@ 105 lb'])
     s = tap(s, '@ 105 lb')
     expect(chipLabels(s)).toEqual(['+ Add Exercise'])
-  })
-})
-
-describe('gym blocks typed rounds first: 3 × (', () => {
-  const press = (state, action) => workoutReducer(state, action)
-  const typeNumber = (state, n) => [...String(n)].reduce((s, d) => press(s, { type: 'digit', digit: Number(d) }), state)
-  const del = (state) => press(state, { type: 'delete' })
-  const stage = (state) => gym.getStage(state.current).id
-  const text = (state) => gym.format(state.current)
-
-  it('3 x then 3 × ( builds a circuit left to right', () => {
-    let s = tap(press(typeNumber(initialState('gym'), 3), { type: 'times' }), '3 × (')
-    expect(text(s)).toBe('3 × (')
-    s = ['10', '10 Push-Ups', '+ Add Exercise', '15', '15 Sit-Ups', '+ Add Exercise', '20', '20 Lunges'].reduce(tap, s)
-    expect(text(s)).toBe('3 × (10 Push-Ups + 15 Sit-Ups + 20 Lunges')
-    s = tap(s, 'Finish Block')
-    expect(stage(s)).toBe('BL5')
-    expect(tap(s, '60 sec rest').lines).toEqual(['3 × (10 Push-Ups + 15 Sit-Ups + 20 Lunges), 60 sec rest'])
-  })
-
-  it('works straight from the typed number, without ×', () => {
-    const s = tap(typeNumber(initialState('gym'), 4), '4 × (')
-    expect(text(s)).toBe('4 × (')
-  })
-
-  it('deleting the empty block goes back to 3 x', () => {
-    let s = tap(press(typeNumber(initialState('gym'), 3), { type: 'times' }), '3 × (')
-    s = del(s)
-    expect([stage(s), text(s)]).toEqual(['S2', '3 x'])
-    expect(tap(typeNumber(s, 12), 'Squats').current.sets).toBe(3)
   })
 })

@@ -28,8 +28,8 @@ function row(state, label) {
 
 const swimLine = (...labels) => enter('swim', labels)
 const gymLine = (...labels) => enter('gym', labels)
-const swimBlock = (...labels) => enter('swim', ['Start Block', ...labels])
-const gymBlock = (...labels) => enter('gym', ['Start Block', ...labels])
+const swimBlock = (...labels) => enter('swim', ['3', '3 × (', ...labels])
+const gymBlock = (...labels) => enter('gym', ['3', '3 × (', ...labels])
 
 const STROKES = ['Free', 'Back', 'Breast', 'Fly', 'IM', 'Kick', 'Pull', 'Drill', 'Choice']
 const EFFORTS = ['Easy', 'Moderate', 'Fast', 'Sprint', 'Build', 'Descend']
@@ -240,18 +240,18 @@ describe('blocks use the same predictions as lines', () => {
   })
 
   it('gym block rest follows the most demanding item', () => {
-    const light = ['20', '20 Push-Ups', '+ Add Exercise', '20', '20 Sit-Ups', 'Finish Block', 'Repeat ×3']
+    const light = ['20', '20 Push-Ups', '+ Add Exercise', '20', '20 Sit-Ups', 'Finish Block']
     expect(row(gymBlock(...light), 'Rest')[0]).toBe('60 sec rest')
-    const heavy = ['5', '5 Deadlift', '+ Add Exercise', '20', '20 Push-Ups', 'Finish Block', 'Repeat ×3']
+    const heavy = ['5', '5 Deadlift', '+ Add Exercise', '20', '20 Push-Ups', 'Finish Block']
     expect(row(gymBlock(...heavy), 'Rest')[0]).toBe('3 min rest')
   })
 
   it('swim block rest follows the yards in one round, and any sprint', () => {
-    const short = ['2', '2 x 25', 'Free', '+ Add', '2', '2 x 25', 'Kick', 'Finish Block', 'Repeat ×3']
+    const short = ['2', '2 x 25', 'Free', '+ Add', '2', '2 x 25', 'Kick', 'Finish Block']
     expect(row(swimBlock(...short), 'Rest')[0]).toBe('15 sec rest')
-    const long = ['400 yd', 'Free', '+ Add', '100 yd', 'Kick', 'Finish Block', 'Repeat ×2']
+    const long = ['400 yd', 'Free', '+ Add', '100 yd', 'Kick', 'Finish Block']
     expect(row(swimBlock(...long), 'Rest')[0]).toBe('30 sec rest')
-    const sprint = ['2', '2 x 25', 'Free', 'Sprint', '+ Add', '2', '2 x 25', 'Kick', 'Finish Block', 'Repeat ×3']
+    const sprint = ['2', '2 x 25', 'Free', 'Sprint', '+ Add', '2', '2 x 25', 'Kick', 'Finish Block']
     expect(row(swimBlock(...sprint), 'Rest')[0]).toBe('30 sec rest')
   })
 })
@@ -305,7 +305,7 @@ describe('custom input still wins over predictions', () => {
   })
 
   it('a typed block rest replaces the ranked chips', () => {
-    const labels = ['5', '5 Deadlift', '+ Add Exercise', '5', '5 Squats', 'Finish Block', 'Repeat ×2']
+    const labels = ['5', '5 Deadlift', '+ Add Exercise', '5', '5 Squats', 'Finish Block']
     const s = typeNumber(gymBlock(...labels), 45)
     expect(row(s, 'Rest')).toEqual(['45 sec rest'])
   })
@@ -393,11 +393,11 @@ describe('swim equipment', () => {
     expect(rows(s)).toEqual(['Interval', null])
     expect(row(s, 'Interval')).toEqual(row(swimLine(...labels, 'Fins'), 'Interval'))
     s = tap(s, '@ :55')
-    expect(text(s)).toBe('(8 x 50 Kick w/ Fins @ :55')
+    expect(text(s)).toBe('3 × (8 x 50 Kick w/ Fins @ :55')
     expect(rows(s)).toEqual([null])
-    expect(text(del(s))).toBe('(8 x 50 Kick w/ Fins')
-    expect(text(del(del(s)))).toBe('(8 x 50 Kick')
-    s = enter('swim', ['+ Add', '100 yd', 'Free', 'Finish Block', 'Repeat ×2', 'Done'], s)
-    expect(s.lines).toEqual(['2 × (8 x 50 Kick w/ Fins @ :55 + 100 Free)'])
+    expect(text(del(s))).toBe('3 × (8 x 50 Kick w/ Fins')
+    expect(text(del(del(s)))).toBe('3 × (8 x 50 Kick')
+    s = enter('swim', ['+ Add', '100 yd', 'Free', 'Finish Block', 'Done'], s)
+    expect(s.lines).toEqual(['3 × (8 x 50 Kick w/ Fins @ :55 + 100 Free)'])
   })
 })

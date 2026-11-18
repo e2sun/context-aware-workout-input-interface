@@ -1,7 +1,7 @@
 // Swim set grammar: [Reps x] Distance Stroke [Effort] [Equipment] [Interval | Rest]
 // or a block: Rounds × (Item + Item [+ ...]) [Rest], where an item is a set
 // ("8 x 25 Free") or a single swim ("100 Free"), each with optional [Effort] [Equipment] [Interval]
-// Stages and transitions follow docs/grammar.md section 6 (S0–S2, SW1–SW4, BL1–BL5).
+// Stages and transitions follow docs/grammar.md section 6 (S0–S2, SW1–SW4, BL1–BL4).
 //
 // Every sport grammar exports the same shape (see grammar/index.js):
 //   emptyEntry, getStage, getSuggestions, acceptsDigits, typeDigit, acceptsTimes,
@@ -204,12 +204,11 @@ function lineSuggestions(e) {
       return [
         { label: 'Reps', chips: REPS.map((n) => ({ label: String(n), patch: { reps: n } })) },
         distanceGroup,
-        block.startBlockGroup(blockItem),
       ]
     case 'S1':
     case 'S2':
       return e.typed === null
-        ? [...numberGroups(e, null), block.roundsFirstGroup(blockItem, e.reps, emptyEntry())]
+        ? [...numberGroups(e, null), block.blockGroup(blockItem, e.reps, emptyEntry())]
         : numberGroups(e, e.typed)
     case 'SW1':
       return [strokeGroup(e.distance)]

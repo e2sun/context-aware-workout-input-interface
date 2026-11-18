@@ -1,6 +1,6 @@
 // Gym set grammar: [Sets x] Reps Exercise [Weight] [Rest]
 // or a block: Rounds × (Reps Exercise [Weight] + ...) [Rest]
-// Stages and transitions follow docs/grammar.md section 6 (S0–S2, GY1–GY3, BL1–BL5).
+// Stages and transitions follow docs/grammar.md section 6 (S0–S2, GY1–GY3, BL1–BL4).
 // Exports the same shape as swim.js (see grammar/index.js).
 
 import {
@@ -135,11 +135,10 @@ function lineSuggestions(e) {
     case 'S0':
       return [
         { label: 'Sets', chips: SETS.map((n) => ({ label: String(n), patch: { sets: n } })) },
-        block.startBlockGroup(blockItem),
       ]
     case 'S1':
     case 'S2':
-      return e.typed === null ? [...numberGroups(e), block.roundsFirstGroup(blockItem, e.sets, emptyEntry())] : numberGroups(e)
+      return e.typed === null ? [...numberGroups(e), block.blockGroup(blockItem, e.sets, emptyEntry())] : numberGroups(e)
     case 'GY1':
       return [{ label: 'Exercise', chips: exercisesFor(e.reps).map((x) => ({ label: x, patch: { exercise: x } })) }]
     case 'GY2':

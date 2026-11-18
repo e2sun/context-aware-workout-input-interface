@@ -252,12 +252,6 @@ An exercise without a listed tier uses tier 1. The current interface has no way 
 | Gym | Number is above 6 | `Single` |
 | Gym | Number is 6 or below | `Reps` |
 
-### Repeat Count
-
-There is no block-specific context for this rule, so the order is fixed:
-
-`Repeat ×3, Repeat ×2, Repeat ×4`
-
 ### Typed Values
 
 - A typed value replaces the preset chips for that slot.
@@ -267,5 +261,5 @@ There is no block-specific context for this rule, so the order is fixed:
 ### Unchanged Behavior
 
 - The order of chip rows at the swim and gym entry stages is unchanged, except for the first-number rule above.
-- Done, Start Block, `+ Add`, `+ Add Exercise`, and Finish Block are not ranked.
+- Done, the `n × (` block chip, `+ Add`, `+ Add Exercise`, and Finish Block are not ranked.
 - The distance chips for starting a single swim stay in the order `100, 200, 300, 400, 500`.

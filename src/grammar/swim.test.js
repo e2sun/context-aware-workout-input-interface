@@ -157,25 +157,29 @@ describe('swim blocks', () => {
   const groupLabels = (state) => swim.getSuggestions(state.current).map((g) => g.label)
   const text = (state) => swim.format(state.current)
 
-  const opened = () => tap(initialState('swim'), 'Start Block')
+  // A block is entered as written: the rounds, then `n × (`.
+  const opened = (n = 3) => tap(typeNumber(initialState('swim'), n), `${n} × (`)
 
-  // 100 Free + 8 x 25 Kick + 50 Free Sprint, not yet finished
-  const threeItems = () => {
-    let s = tap(typeNumber(opened(), 100), '100 Free')
+  // 3 × (100 Free + 8 x 25 Kick + 50 Free Sprint, not yet finished
+  const threeItems = (n = 3) => {
+    let s = tap(typeNumber(opened(n), 100), '100 Free')
     s = tap(tap(tap(tap(s, '+ Add'), '8'), '8 x 25'), 'Kick')
     s = tap(typeNumber(tap(s, '+ Add'), 50), '50 Free')
     return tap(s, 'Sprint')
   }
 
-  it('offers Start Block at the start of every line', () => {
-    expect(chipLabels(initialState('swim'))).toContain('Start Block')
-    expect(chipLabels(typeNumber(initialState('swim'), 8))).not.toContain('Start Block')
+  it('offers n × ( after a first number from 2 to 20, and nothing at line start', () => {
+    expect(groupLabels(initialState('swim'))).toEqual(['Reps', 'Distance'])
+    expect(chipLabels(typeNumber(initialState('swim'), 3))).toContain('3 × (')
+    expect(chipLabels(typeNumber(initialState('swim'), 20))).toContain('20 × (')
+    expect(chipLabels(typeNumber(initialState('swim'), 1)).join()).not.toContain('×')
+    expect(chipLabels(typeNumber(initialState('swim'), 21)).join()).not.toContain('×')
   })
 
-  it('Start Block opens an empty block waiting for the first item', () => {
+  it('n × ( opens an empty block waiting for the first item', () => {
     const s = opened()
     expect(stage(s)).toBe('BL1')
-    expect(text(s)).toBe('(')
+    expect(text(s)).toBe('3 × (')
     expect(swim.acceptsDigits(s.current)).toBe(true)
   })
 
@@ -183,10 +187,10 @@ describe('swim blocks', () => {
     let s = opened()
     expect(groupLabels(s)).toEqual(['Reps', 'Distance'])
     s = tap(s, '100 yd')
-    expect([stage(s), text(s)]).toEqual(['BL2', '(100'])
+    expect([stage(s), text(s)]).toEqual(['BL2', '3 × (100'])
     expect(swim.acceptsDigits(s.current)).toBe(false)
     s = tap(s, 'Free')
-    expect(text(s)).toBe('(100 Free')
+    expect(text(s)).toBe('3 × (100 Free')
     expect(stage(del(del(s)))).toBe('BL2')
   })
 
@@ -205,45 +209,48 @@ describe('swim blocks', () => {
     expect(stage(s)).toBe('BL3')
     expect(groupLabels(s)).toEqual(['Effort', 'Equipment', 'Interval', null])
     s = tap(s, '@ :30')
-    expect(text(s)).toBe('(8 x 25 Free @ :30')
+    expect(text(s)).toBe('3 × (8 x 25 Free @ :30')
     // Effort and equipment come before the interval, so they are no longer offered.
     expect(groupLabels(s)).toEqual([null])
   })
 
-  it('builds, repeats and commits a mixed block', () => {
+  it('builds and commits a mixed block; Finish goes straight to rest', () => {
     let s = threeItems()
-    expect(text(s)).toBe('(100 Free + 8 x 25 Kick + 50 Free Sprint')
+    expect(text(s)).toBe('3 × (100 Free + 8 x 25 Kick + 50 Free Sprint')
     s = tap(s, 'Finish Block')
-    expect(chipLabels(s)).toEqual(['Repeat ×3', 'Repeat ×2', 'Repeat ×4'])
-    s = tap(tap(s, 'Repeat ×3'), 'Done')
+    expect([stage(s), text(s)]).toEqual(['BL4', '3 × (100 Free + 8 x 25 Kick + 50 Free Sprint)'])
+    expect(groupLabels(s)).toEqual(['Rest', null])
+    s = tap(s, 'Done')
     expect(s.lines).toEqual(['3 × (100 Free + 8 x 25 Kick + 50 Free Sprint)'])
     expect(stage(s)).toBe('S0')
   })
 
   it('a block rest commits the block', () => {
-    const s = tap(tap(tap(threeItems(), 'Finish Block'), 'Repeat ×2'), '20 sec rest')
+    const s = tap(tap(threeItems(2), 'Finish Block'), '20 sec rest')
     expect(s.lines).toEqual(['2 × (100 Free + 8 x 25 Kick + 50 Free Sprint), 20 sec rest'])
   })
 
-  it('deletes back through a block one slot at a time', () => {
-    let s = tap(tap(threeItems(), 'Finish Block'), 'Repeat ×3')
+  it('deletes back through a block one slot at a time, then to n x', () => {
+    let s = tap(threeItems(), 'Finish Block')
     const expected = [
-      ['BL4', '(100 Free + 8 x 25 Kick + 50 Free Sprint)'],
-      ['BL3', '(100 Free + 8 x 25 Kick + 50 Free Sprint'],
-      ['BL3', '(100 Free + 8 x 25 Kick + 50 Free'],
+      ['BL3', '3 × (100 Free + 8 x 25 Kick + 50 Free Sprint'],
+      ['BL3', '3 × (100 Free + 8 x 25 Kick + 50 Free'],
       // Undoing a single swim's stroke turns its distance back into the typed number.
-      ['BL2', '(100 Free + 8 x 25 Kick + 50'],
-      ['BL2', '(100 Free + 8 x 25 Kick + 5'],
-      ['BL1', '(100 Free + 8 x 25 Kick + '],
-      ['BL3', '(100 Free + 8 x 25 Kick'],
-      ['BL2', '(100 Free + 8 x 25'],
-      ['BL2', '(100 Free + 8'],
-      ['BL1', '(100 Free + '],
-      ['BL3', '(100 Free'],
-      ['BL2', '(100'],
-      ['BL2', '(10'],
-      ['BL2', '(1'],
-      ['BL1', '('],
+      ['BL2', '3 × (100 Free + 8 x 25 Kick + 50'],
+      ['BL2', '3 × (100 Free + 8 x 25 Kick + 5'],
+      ['BL1', '3 × (100 Free + 8 x 25 Kick + '],
+      ['BL3', '3 × (100 Free + 8 x 25 Kick'],
+      ['BL2', '3 × (100 Free + 8 x 25'],
+      ['BL2', '3 × (100 Free + 8'],
+      ['BL1', '3 × (100 Free + '],
+      ['BL3', '3 × (100 Free'],
+      ['BL2', '3 × (100'],
+      ['BL2', '3 × (10'],
+      ['BL2', '3 × (1'],
+      ['BL1', '3 × ('],
+      // Deleting the empty block goes back to the rounds as "3 x".
+      ['S2', '3 x'],
+      ['S1', '3'],
       ['S0', ''],
     ]
     for (const step of expected) {
@@ -276,14 +283,23 @@ describe('swim blocks', () => {
     }
   })
 
-  it('types a custom interval, distance and repeat count inside a block', () => {
-    let s = tap(typeNumber(press(tap(opened(), '8'), { type: 'times' }), 75), 'Kick')
-    expect(text(s)).toBe('(8 x 75 Kick')
+  it('types a custom round count, distance, interval and rest', () => {
+    let s = tap(typeNumber(press(tap(opened(5), '8'), { type: 'times' }), 75), 'Kick')
+    expect(text(s)).toBe('5 × (8 x 75 Kick')
     s = tap(typeNumber(s, 110), '@ 1:10')
     s = tap(tap(tap(s, '+ Add'), '100 yd'), 'Free')
-    s = tap(typeNumber(tap(s, 'Finish Block'), 5), 'Repeat ×5')
-    s = tap(typeNumber(s, 15), '15 sec rest')
+    s = tap(typeNumber(tap(s, 'Finish Block'), 15), '15 sec rest')
     expect(s.lines).toEqual(['5 × (8 x 75 Kick @ 1:10 + 100 Free), 15 sec rest'])
+  })
+
+  it('works after × too: 3 x then 3 × (', () => {
+    const s = tap(press(typeNumber(initialState('swim'), 3), { type: 'times' }), '3 × (')
+    expect([stage(s), text(s)]).toEqual(['BL1', '3 × ('])
+    expect(chipLabels(typeNumber(press(typeNumber(initialState('swim'), 3), { type: 'times' }), 5))).not.toContain('3 × (')
+  })
+
+  it('still needs two items before Finish Block', () => {
+    expect(chipLabels(['100 yd', 'Free'].reduce(tap, opened()))).not.toContain('Finish Block')
   })
 
   it('reset clears a block in progress', () => {
@@ -359,86 +375,22 @@ describe('swim @ key', () => {
   })
 
   it('works on a block item', () => {
-    let s = enter(['Start Block', '8', '8 x 50', 'Kick', 'Fins'])
+    let s = enter(['3', '3 × (', '8', '8 x 50', 'Kick', 'Fins'])
     expect(swim.acceptsAt(s.current)).toBe(true)
     s = typeNumber(at(s), 58)
-    expect(text(s)).toBe('(8 x 50 Kick w/ Fins @ :58')
+    expect(text(s)).toBe('3 × (8 x 50 Kick w/ Fins @ :58')
     expect(chipLabels(s)).toEqual(['@ :58'])
     s = tap(s, '@ :58')
-    expect(text(s)).toBe('(8 x 50 Kick w/ Fins @ :58')
+    expect(text(s)).toBe('3 × (8 x 50 Kick w/ Fins @ :58')
     expect(swim.acceptsAt(s.current)).toBe(false)
     s = ['+ Add', '100 yd', 'Free', 'Finish Block'].reduce(tap, s)
     expect(swim.acceptsAt(s.current)).toBe(false)
-    s = ['Repeat ×3', 'Done'].reduce(tap, s)
+    s = tap(s, 'Done')
     expect(s.lines).toEqual(['3 × (8 x 50 Kick w/ Fins @ :58 + 100 Free)'])
   })
 
   it('@ then delete inside a block returns to the item modifiers', () => {
-    const s = del(at(enter(['Start Block', '8', '8 x 50', 'Kick'])))
+    const s = del(at(enter(['3', '3 × (', '8', '8 x 50', 'Kick'])))
     expect(chipLabels(s)).toEqual(expect.arrayContaining(['Kickboard', '+ Add']))
-  })
-})
-
-describe('swim blocks typed rounds first: 3 × (', () => {
-  const press = (state, action) => workoutReducer(state, action)
-  const typeNumber = (state, n) => [...String(n)].reduce((s, d) => press(s, { type: 'digit', digit: Number(d) }), state)
-  const del = (state) => press(state, { type: 'delete' })
-  const stage = (state) => swim.getStage(state.current).id
-  const chipLabels = (state) => swim.getSuggestions(state.current).flatMap((g) => g.chips.map((c) => c.label))
-  const text = (state) => swim.format(state.current)
-  const threeX = () => press(typeNumber(initialState('swim'), 3), { type: 'times' })
-
-  it('offers 3 × ( after 3 or 3 x, but not while a distance is typed or for a distance', () => {
-    expect(chipLabels(typeNumber(initialState('swim'), 3))).toContain('3 × (')
-    expect(chipLabels(threeX())).toContain('3 × (')
-    expect(chipLabels(typeNumber(threeX(), 5))).not.toContain('3 × (')
-    expect(chipLabels(typeNumber(initialState('swim'), 100))).not.toContain('100 × (')
-  })
-
-  it('builds the block left to right and skips the Repeat step', () => {
-    let s = tap(threeX(), '3 × (')
-    expect([stage(s), text(s)]).toEqual(['BL1', '3 × ('])
-    s = ['100 yd', 'Free', '+ Add', '4', '4 x 25', 'Fly', 'Sprint', '@ :30'].reduce(tap, s)
-    expect(text(s)).toBe('3 × (100 Free + 4 x 25 Fly Sprint @ :30')
-    s = tap(s, 'Finish Block')
-    expect([stage(s), text(s)]).toEqual(['BL5', '3 × (100 Free + 4 x 25 Fly Sprint @ :30)'])
-    s = tap(s, '30 sec rest')
-    expect(s.lines).toEqual(['3 × (100 Free + 4 x 25 Fly Sprint @ :30), 30 sec rest'])
-  })
-
-  it('gives the same line as Start Block then Repeat ×3', () => {
-    const items = ['100 yd', 'Free', '+ Add', '4', '4 x 25', 'Fly', 'Finish Block']
-    const first = [...items, 'Done'].reduce(tap, tap(threeX(), '3 × ('))
-    const last = ['Start Block', ...items, 'Repeat ×3', 'Done'].reduce(tap, initialState('swim'))
-    expect(first.lines).toEqual(last.lines)
-  })
-
-  it('delete walks back through the block to 3 x, keeping the rounds', () => {
-    let s = ['100 yd', 'Free', '+ Add', '200 yd', 'Kick', 'Finish Block'].reduce(tap, tap(threeX(), '3 × ('))
-    const expected = [
-      ['BL3', '3 × (100 Free + 200 Kick'],
-      ['BL2', '3 × (100 Free + 200'],
-      ['BL2', '3 × (100 Free + 20'],
-      ['BL2', '3 × (100 Free + 2'],
-      ['BL1', '3 × (100 Free + '],
-      ['BL3', '3 × (100 Free'],
-      ['BL2', '3 × (100'],
-      ['BL2', '3 × (10'],
-      ['BL2', '3 × (1'],
-      ['BL1', '3 × ('],
-      ['S2', '3 x'],
-      ['S1', '3'],
-      ['S0', ''],
-    ]
-    for (const step of expected) {
-      s = del(s)
-      expect([stage(s), text(s)]).toEqual(step)
-    }
-    expect(s).toEqual(initialState('swim'))
-  })
-
-  it('still needs two items before Finish Block', () => {
-    const s = ['100 yd', 'Free'].reduce(tap, tap(threeX(), '3 × ('))
-    expect(chipLabels(s)).not.toContain('Finish Block')
   })
 })
